@@ -32,9 +32,24 @@ class Cases:
         self.items[(case.tenant_id, case.id)] = case
 
 
+class Decisions:
+    def __init__(self):
+        self.items = {}
+
+    def add(self, decision):
+        self.items[decision.id] = decision
+
+    def get(self, decision_id, tenant_id):
+        return self.items.get(decision_id)
+
+    def save(self, decision):
+        self.items[decision.id] = decision
+
+
 class Uow:
     def __init__(self, case):
         self.decision_cases = Cases()
+        self.decisions = Decisions()
         self.decision_cases.add(case)
         self.commits = 0
 
