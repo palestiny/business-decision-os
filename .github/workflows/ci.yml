@@ -36,6 +36,15 @@ jobs:
       - run: alembic upgrade head
         env:
           SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
+      - run: alembic downgrade base
+        env:
+          SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
+      - run: alembic upgrade head
+        env:
+          SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
+      - run: alembic current --check-heads
+        env:
+          SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
       - run: pytest
         env:
           SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
