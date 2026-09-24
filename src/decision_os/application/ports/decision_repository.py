@@ -12,5 +12,5 @@ class DecisionRepository(Protocol):
     def add(self, decision: Decision) -> None:
         ...
 
-    def save(self, decision: Decision) -> None:
+    def save(self, decision: Decision, tenant_id: UUID) -> None:
         ...
