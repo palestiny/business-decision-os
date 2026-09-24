@@ -52,7 +52,7 @@ class SQLAlchemyDecisionRepository:
             decided_by=decision.decided_by,
             decided_at=now,
             created_at=now,
-            approval_required=decision._approval_required,
+            approval_required=decision.approval_required,
         ))
         self._session.add_all(
             DecisionSelectedOptionModel(decision_id=decision.id, option_id=option_id)
