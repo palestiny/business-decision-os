@@ -71,6 +71,10 @@ class Decision:
             _approval_required=approval_required,
         )
 
+    @property
+    def approval_required(self) -> bool:
+        return self._approval_required
+
     def approve(self) -> None:
         if not self._approval_required:
             raise InvalidDecision("decision does not require approval")
