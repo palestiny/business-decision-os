@@ -9,11 +9,15 @@ Persistence verification contracts and CI hardening.
 - Persistence integration-contract tests validate the complete v0.1 table set can be materialized by SQLAlchemy metadata.
 - Tenant scoping and optimistic version columns are explicitly asserted.
 - Tenant + operation + idempotency key uniqueness is explicitly asserted.
-- GitHub Actions now provides the runtime path for Python test verification on supported Python versions.
+- GitHub Actions now provides PostgreSQL 17 service coverage for Python 3.12 and 3.13.
+- CI now exercises Alembic upgrade, downgrade to base, upgrade again, and head-state verification.
+- PostgreSQL integration tests cover repository round-trip, tenant isolation, optimistic concurrency conflict, and transaction rollback.
+- Alembic now honors `SQLALCHEMY_DATABASE_URL` for both offline and online migration execution.
+- Decision persistence save is tenant-scoped to prevent cross-tenant mutation by identifier.
 
 ## Verification boundary
 
-The repository now has automated CI coverage, but the local assistant environment still has no verified PostgreSQL runtime. Therefore PostgreSQL migration execution remains **NOT VERIFIED HERE**.
+The CI workflow changes and integration tests are committed, but no successful workflow run has been observed for the latest commits yet. Therefore PostgreSQL runtime verification remains **NOT VERIFIED YET**.
 
 ## Reliability rule
 
@@ -21,4 +25,4 @@ The repository's current concurrency implementation uses an explicit version pre
 
 ## Next
 
-Add real PostgreSQL service coverage to CI, run Alembic upgrade/downgrade from an empty database, and test repository round-trips plus concurrency conflicts.
+Observe the CI run for the persistence branch. If green, proceed to complete Decision persistence/application wiring and then expose the first API command boundary. If CI fails, fix the root cause before advancing.
