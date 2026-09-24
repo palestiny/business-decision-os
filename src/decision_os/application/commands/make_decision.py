@@ -39,5 +39,6 @@ class MakeDecisionHandler:
             decided_by=command.actor_id,
             approval_required=command.approval_required,
         )
+        self._uow.decisions.add(decision)
         self._uow.commit()
         return decision
