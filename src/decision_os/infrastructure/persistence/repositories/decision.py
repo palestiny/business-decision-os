@@ -59,8 +59,15 @@ class SQLAlchemyDecisionRepository:
             for option_id in decision.selected_option_ids
         )
 
-    def save(self, decision: Decision) -> None:
-        model = self._session.get(DecisionModel, decision.id)
+    def save(self, decision: Decision, tenant_id: UUID) -> None:
+        model = self._session.scalar(
+            select(DecisionModel)
+            .join(DecisionCaseModel, DecisionCaseModel.id == DecisionModel.case_id)
+            .where(
+                DecisionModel.id == decision.id,
+                DecisionCaseModel.tenant_id == tenant_id,
+            )
+        )
         if model is None:
             raise ValueError("decision not found")
         model.status = decision.status.value
