@@ -11,6 +11,20 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: business_decision_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d business_decision_os"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,4 +33,9 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+        env:
+          SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
       - run: pytest
+        env:
+          SQLALCHEMY_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/business_decision_os
