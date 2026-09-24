@@ -27,7 +27,7 @@ class CaseStatus(StrEnum):
     EXPIRED = "EXPIRED"
 
 
-class DomainError(Exception):
+class DomainError(ValueError):
     """Base domain exception."""
 
 
