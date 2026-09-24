@@ -22,3 +22,11 @@ Tests have been committed as the executable contract. Runtime execution is pendi
 ## Next
 
 Implement application handlers and persistence ports, then verify them in CI/local development.
+
+
+## Technology and application layer
+
+- Accepted Python 3.12+ / FastAPI / SQLAlchemy 2.x / Alembic / PostgreSQL / pytest for MVP.
+- Added application ports for DecisionCase persistence and Unit of Work.
+- Added CreateDecisionCase command and handler.
+- Added an application-level persistence/commit contract test.
