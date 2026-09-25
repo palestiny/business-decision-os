@@ -8,6 +8,10 @@ from decision_os.application.commands.make_decision import (
     MakeDecisionCommand,
     MakeDecisionHandler,
 )
+from decision_os.application.commands.reject_decision import (
+    RejectDecisionCommand,
+    RejectDecisionHandler,
+)
 from decision_os.application.commands.triage_case import (
     TriageCaseCommand,
     TriageCaseHandler,
@@ -161,4 +165,35 @@ def test_approve_decision_loads_and_persists_by_tenant():
     assert result.status is DecisionStatus.APPROVED
     assert uow.decisions.items[decision.id].status is DecisionStatus.APPROVED
     assert case.status is CaseStatus.APPROVED
+    assert uow.commits == 1
+
+
+def test_reject_decision_persists_rejection_and_case_state():
+    case = make_case()
+    move_to_awaiting_decision(case)
+    option = DecisionOption(uuid4(), case.id, "Reduce scope")
+    decision = Decision.make(
+        id=uuid4(),
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Reject unprofitable scope",
+        decided_by=uuid4(),
+        approval_required=True,
+    )
+    uow = Uow(case)
+    uow.decisions.add(decision)
+    case.record_decision(approval_required=True)
+
+    result = RejectDecisionHandler(uow).handle(
+        RejectDecisionCommand(
+            tenant_id=case.tenant_id,
+            case_id=case.id,
+            decision_id=decision.id,
+        )
+    )
+
+    assert result.status is DecisionStatus.REJECTED
+    assert uow.decisions.items[decision.id].status is DecisionStatus.REJECTED
+    assert case.status is CaseStatus.REJECTED
     assert uow.commits == 1
