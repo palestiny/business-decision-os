@@ -16,6 +16,7 @@ from decision_os.application.commands.triage_case import (
     TriageCaseCommand,
     TriageCaseHandler,
 )
+from decision_os.application.ports.authority import Permission
 from decision_os.domain.decision import Decision, DecisionOption, DecisionStatus
 from decision_os.domain.decision_case import CaseStatus, DecisionCase
 
@@ -46,6 +47,14 @@ class Decisions:
 
     def save(self, decision, tenant_id):
         self.items[decision.id] = decision
+
+
+class Authorization:
+    def __init__(self):
+        self.calls = []
+
+    def require(self, **kwargs):
+        self.calls.append(kwargs)
 
 
 class Uow:
@@ -137,7 +146,7 @@ def test_make_decision_without_approval_moves_case_to_approved():
     assert case.status is CaseStatus.APPROVED
 
 
-def test_approve_decision_loads_and_persists_by_tenant():
+def test_approve_decision_requires_authority_and_persists_by_tenant():
     case = make_case()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Bill change request")
@@ -153,12 +162,15 @@ def test_approve_decision_loads_and_persists_by_tenant():
     uow = Uow(case)
     uow.decisions.add(decision)
     case.record_decision(approval_required=True)
+    authorization = Authorization()
+    actor_id = uuid4()
 
-    result = ApproveDecisionHandler(uow).handle(
+    result = ApproveDecisionHandler(uow, authorization).handle(
         ApproveDecisionCommand(
             tenant_id=case.tenant_id,
             case_id=case.id,
             decision_id=decision.id,
+            actor_id=actor_id,
         )
     )
 
@@ -166,6 +178,12 @@ def test_approve_decision_loads_and_persists_by_tenant():
     assert uow.decisions.items[decision.id].status is DecisionStatus.APPROVED
     assert case.status is CaseStatus.APPROVED
     assert uow.commits == 1
+    assert authorization.calls == [{
+        "actor_id": actor_id,
+        "tenant_id": case.tenant_id,
+        "permission": Permission.APPROVE_DECISION,
+        "resource_id": case.id,
+    }]
 
 
 def test_reject_decision_persists_rejection_and_case_state():
