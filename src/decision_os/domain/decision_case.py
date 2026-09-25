@@ -76,12 +76,34 @@ class DecisionCase:
     def await_decision(self) -> None:
         self._transition(CaseStatus.AWAITING_DECISION)
 
+    def record_decision(self, *, approval_required: bool) -> None:
+        target = (
+            CaseStatus.AWAITING_APPROVAL
+            if approval_required
+            else CaseStatus.APPROVED
+        )
+        self._transition(target)
+
+    def approve(self) -> None:
+        self._transition(CaseStatus.APPROVED)
+
+    def reject(self) -> None:
+        self._transition(CaseStatus.REJECTED)
+
     def _transition(self, target: CaseStatus) -> None:
         allowed = {
             CaseStatus.DETECTED: {CaseStatus.TRIAGED},
             CaseStatus.TRIAGED: {CaseStatus.ANALYZING},
             CaseStatus.ANALYZING: {CaseStatus.OPTIONS_READY},
             CaseStatus.OPTIONS_READY: {CaseStatus.AWAITING_DECISION},
+            CaseStatus.AWAITING_DECISION: {
+                CaseStatus.AWAITING_APPROVAL,
+                CaseStatus.APPROVED,
+            },
+            CaseStatus.AWAITING_APPROVAL: {
+                CaseStatus.APPROVED,
+                CaseStatus.REJECTED,
+            },
         }
         if target not in allowed.get(self.status, set()):
             raise InvalidCaseTransition(
