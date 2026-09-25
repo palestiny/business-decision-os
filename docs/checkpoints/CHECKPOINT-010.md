@@ -17,7 +17,7 @@ Persistence verification contracts and CI hardening.
 
 ## Verification boundary
 
-The CI workflow changes and integration tests are committed, but no successful workflow run has been observed for the latest commits yet. Therefore PostgreSQL runtime verification remains **NOT VERIFIED YET**.
+The first CI run for the persistence integration failed before migrations because `alembic/env.py` called `fileConfig()` against the deliberately minimal `alembic.ini`, which has no `[formatters]` section. The root cause was fixed in commit `81bea0e6750a42c5c22c86378172a464f73ae54d` by removing the invalid logging bootstrap. A new workflow run has not yet been observed, so PostgreSQL runtime verification remains **NOT VERIFIED YET**.
 
 ## Reliability rule
 
