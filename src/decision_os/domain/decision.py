@@ -53,6 +53,12 @@ class Decision:
         if not rationale.strip():
             raise InvalidDecision("decision rationale is required")
 
+        if len(selected_option_ids) != len(set(selected_option_ids)):
+            raise InvalidDecision("selected options must be unique")
+
+        if any(option.case_id != case_id for option in available_options):
+            raise InvalidDecision("available option does not belong to the case")
+
         available_ids = {option.id for option in available_options}
         if not set(selected_option_ids).issubset(available_ids):
             raise InvalidDecision("selected option does not belong to the case")
