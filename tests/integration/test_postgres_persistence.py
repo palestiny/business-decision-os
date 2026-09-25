@@ -5,9 +5,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from decision_os.domain.decision import Decision, DecisionOption
 from decision_os.domain.decision_case import DecisionCase
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
+from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
+from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
 from decision_os.infrastructure.persistence.session import build_session_factory
 
@@ -105,3 +108,41 @@ def test_rollback_does_not_persist_new_case(session: Session) -> None:
     assert session.scalar(
         select(DecisionCaseModel).where(DecisionCaseModel.id == case.id)
     ) is None
+
+
+def test_decision_repository_round_trip_with_selected_option(session: Session) -> None:
+    tenant_id = uuid4()
+    user_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case_repository = SQLAlchemyDecisionCaseRepository(session)
+    case_repository.add(case)
+
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Reduce scope")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.commit()
+
+    decision = Decision.make(
+        id=uuid4(),
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Protect delivery margin.",
+        decided_by=user_id,
+        approval_required=True,
+    )
+
+    repository = SQLAlchemyDecisionRepository(session)
+    repository.add(decision)
+    session.commit()
+
+    loaded = repository.get(decision.id, tenant_id)
+
+    assert loaded is not None
+    assert loaded.id == decision.id
+    assert loaded.case_id == case.id
+    assert loaded.selected_option_ids == (option.id,)
+    assert loaded.rationale == decision.rationale
+    assert loaded.approval_required is True
+    assert loaded.status == decision.status
