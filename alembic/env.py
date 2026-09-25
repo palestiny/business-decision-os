@@ -1,4 +1,3 @@
-from logging.config import fileConfig
 import os
 
 from alembic import context
@@ -8,9 +7,6 @@ from decision_os.infrastructure.persistence.base import Base
 from decision_os.infrastructure.persistence import models  # noqa: F401
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-
 target_metadata = Base.metadata
 
 
