@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, close_all_sessions
 
 from decision_os.domain.decision import Decision, DecisionOption
 from decision_os.domain.decision_case import DecisionCase
@@ -30,7 +30,7 @@ def session():
     with factory() as db:
         yield db
         db.rollback()
-    factory.close_all_sessions()
+    close_all_sessions()
 
 
 def seed_tenant(session: Session, tenant_id):
