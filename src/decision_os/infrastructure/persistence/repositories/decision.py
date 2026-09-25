@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from uuid import UUID
 
 from sqlalchemy import select
@@ -40,6 +41,7 @@ class SQLAlchemyDecisionRepository:
             status=DecisionStatus(model.status),
             decided_by=model.decided_by,
             _approval_required=model.approval_required,
+            policy_ids=tuple(UUID(value) for value in (json.loads(model.authority_snapshot or "{}").get("policy_ids", []))),
         )
 
     def add(self, decision: Decision) -> None:
@@ -53,6 +55,10 @@ class SQLAlchemyDecisionRepository:
             decided_at=now,
             created_at=now,
             approval_required=decision.approval_required,
+            authority_snapshot=json.dumps({
+                "approval_required": decision.approval_required,
+                "policy_ids": [str(policy_id) for policy_id in decision.policy_ids],
+            }, sort_keys=True),
         ))
         self._session.add_all(
             DecisionSelectedOptionModel(decision_id=decision.id, option_id=option_id)
