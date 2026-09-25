@@ -147,3 +147,49 @@ def test_decision_repository_round_trip_with_selected_option(session: Session) -
     assert loaded.rationale == decision.rationale
     assert loaded.approval_required is True
     assert loaded.status == decision.status
+
+
+def test_decision_repository_persists_approval_and_rejection_status(session: Session) -> None:
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case_repository = SQLAlchemyDecisionCaseRepository(session)
+    case_repository.add(case)
+    session.flush()
+
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Approve change")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.commit()
+
+    repository = SQLAlchemyDecisionRepository(session)
+
+    decision = Decision.make(
+        id=uuid4(),
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Validated recovery path.",
+        decided_by=uuid4(),
+        approval_required=True,
+    )
+    repository.add(decision)
+    session.commit()
+
+    decision.approve()
+    repository.save(decision, tenant_id)
+    session.commit()
+
+    approved = repository.get(decision.id, tenant_id)
+    assert approved is not None
+    assert approved.status == decision.status
+
+    rejected = Decision.make(
+        id=uuid4(),
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Alternative requires rejection.",
+        decided_by=uuid4(),
+        approval_required=True,
+    )
