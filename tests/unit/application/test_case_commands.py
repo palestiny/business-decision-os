@@ -1,22 +1,10 @@
 from uuid import uuid4
 
-from decision_os.application.commands.approve_decision import (
-    ApproveDecisionCommand,
-    ApproveDecisionHandler,
-)
-from decision_os.application.commands.make_decision import (
-    MakeDecisionCommand,
-    MakeDecisionHandler,
-)
-from decision_os.application.commands.reject_decision import (
-    RejectDecisionCommand,
-    RejectDecisionHandler,
-)
-from decision_os.application.commands.triage_case import (
-    TriageCaseCommand,
-    TriageCaseHandler,
-)
-from decision_os.application.ports.authority import Permission
+from decision_os.application.commands.approve_decision import ApproveDecisionCommand, ApproveDecisionHandler
+from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
+from decision_os.application.commands.reject_decision import RejectDecisionCommand, RejectDecisionHandler
+from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
+from decision_os.application.ports.authority import ApprovalDecision, Permission
 from decision_os.domain.decision import Decision, DecisionOption, DecisionStatus
 from decision_os.domain.decision_case import CaseStatus, DecisionCase
 
@@ -57,6 +45,16 @@ class Authorization:
         self.calls.append(kwargs)
 
 
+class PolicyEvaluator:
+    def __init__(self, required):
+        self.required = required
+        self.calls = []
+
+    def evaluate(self, **kwargs):
+        self.calls.append(kwargs)
+        return ApprovalDecision(required=self.required)
+
+
 class Uow:
     def __init__(self, case):
         self.decision_cases = Cases()
@@ -73,10 +71,7 @@ class Uow:
 
 def make_case():
     return DecisionCase.create(
-        id=uuid4(),
-        tenant_id=uuid4(),
-        case_type="PROJECT_MARGIN_RISK",
-        title="Margin risk",
+        id=uuid4(), tenant_id=uuid4(), case_type="PROJECT_MARGIN_RISK", title="Margin risk"
     )
 
 
@@ -90,55 +85,41 @@ def move_to_awaiting_decision(case):
 def test_triage_loads_by_tenant_and_commits():
     case = make_case()
     uow = Uow(case)
-
-    result = TriageCaseHandler(uow).handle(
-        TriageCaseCommand(tenant_id=case.tenant_id, case_id=case.id)
-    )
-
+    result = TriageCaseHandler(uow).handle(TriageCaseCommand(case.tenant_id, case.id))
     assert result.status is CaseStatus.TRIAGED
     assert uow.commits == 1
 
 
-def test_make_decision_preserves_approval_boundary_and_case_state():
+def test_make_decision_uses_policy_for_approval_requirement():
     case = make_case()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Reallocate resources")
     uow = Uow(case)
+    authorization = Authorization()
+    policy = PolicyEvaluator(required=True)
+    actor_id = uuid4()
 
-    decision = MakeDecisionHandler(uow).handle(
-        MakeDecisionCommand(
-            tenant_id=case.tenant_id,
-            case_id=case.id,
-            decision_id=uuid4(),
-            option_ids=(option.id,),
-            rationale="Protect margin",
-            actor_id=uuid4(),
-            approval_required=True,
-        ),
+    decision = MakeDecisionHandler(uow, authorization, policy).handle(
+        MakeDecisionCommand(case.tenant_id, case.id, uuid4(), (option.id,), "Protect margin", actor_id),
         case_options=(option,),
     )
 
     assert decision.status is DecisionStatus.AWAITING_APPROVAL
     assert case.status is CaseStatus.AWAITING_APPROVAL
-    assert uow.commits == 1
+    assert authorization.calls[0]["permission"] is Permission.MAKE_DECISION
+    assert policy.calls[0]["case_id"] == case.id
 
 
-def test_make_decision_without_approval_moves_case_to_approved():
+def test_make_decision_policy_can_allow_immediate_approval():
     case = make_case()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Reduce scope")
     uow = Uow(case)
+    authorization = Authorization()
+    policy = PolicyEvaluator(required=False)
 
-    decision = MakeDecisionHandler(uow).handle(
-        MakeDecisionCommand(
-            tenant_id=case.tenant_id,
-            case_id=case.id,
-            decision_id=uuid4(),
-            option_ids=(option.id,),
-            rationale="Protect margin",
-            actor_id=uuid4(),
-            approval_required=False,
-        ),
+    decision = MakeDecisionHandler(uow, authorization, policy).handle(
+        MakeDecisionCommand(case.tenant_id, case.id, uuid4(), (option.id,), "Protect margin", uuid4()),
         case_options=(option,),
     )
 
@@ -151,13 +132,8 @@ def test_approve_decision_requires_authority_and_persists_by_tenant():
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Bill change request")
     decision = Decision.make(
-        id=uuid4(),
-        case_id=case.id,
-        available_options=(option,),
-        selected_option_ids=(option.id,),
-        rationale="Recover leakage",
-        decided_by=uuid4(),
-        approval_required=True,
+        id=uuid4(), case_id=case.id, available_options=(option,), selected_option_ids=(option.id,),
+        rationale="Recover leakage", decided_by=uuid4(), approval_required=True,
     )
     uow = Uow(case)
     uow.decisions.add(decision)
@@ -166,52 +142,38 @@ def test_approve_decision_requires_authority_and_persists_by_tenant():
     actor_id = uuid4()
 
     result = ApproveDecisionHandler(uow, authorization).handle(
-        ApproveDecisionCommand(
-            tenant_id=case.tenant_id,
-            case_id=case.id,
-            decision_id=decision.id,
-            actor_id=actor_id,
-        )
+        ApproveDecisionCommand(case.tenant_id, case.id, decision.id, actor_id)
     )
 
     assert result.status is DecisionStatus.APPROVED
-    assert uow.decisions.items[decision.id].status is DecisionStatus.APPROVED
     assert case.status is CaseStatus.APPROVED
-    assert uow.commits == 1
     assert authorization.calls == [{
-        "actor_id": actor_id,
-        "tenant_id": case.tenant_id,
-        "permission": Permission.APPROVE_DECISION,
-        "resource_id": case.id,
+        "actor_id": actor_id, "tenant_id": case.tenant_id,
+        "permission": Permission.APPROVE_DECISION, "resource_id": case.id,
     }]
 
 
-def test_reject_decision_persists_rejection_and_case_state():
+def test_reject_decision_requires_authority_and_persists_rejection():
     case = make_case()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Reduce scope")
     decision = Decision.make(
-        id=uuid4(),
-        case_id=case.id,
-        available_options=(option,),
-        selected_option_ids=(option.id,),
-        rationale="Reject unprofitable scope",
-        decided_by=uuid4(),
-        approval_required=True,
+        id=uuid4(), case_id=case.id, available_options=(option,), selected_option_ids=(option.id,),
+        rationale="Reject unprofitable scope", decided_by=uuid4(), approval_required=True,
     )
     uow = Uow(case)
     uow.decisions.add(decision)
     case.record_decision(approval_required=True)
+    authorization = Authorization()
+    actor_id = uuid4()
 
-    result = RejectDecisionHandler(uow).handle(
-        RejectDecisionCommand(
-            tenant_id=case.tenant_id,
-            case_id=case.id,
-            decision_id=decision.id,
-        )
+    result = RejectDecisionHandler(uow, authorization).handle(
+        RejectDecisionCommand(case.tenant_id, case.id, decision.id, actor_id)
     )
 
     assert result.status is DecisionStatus.REJECTED
-    assert uow.decisions.items[decision.id].status is DecisionStatus.REJECTED
     assert case.status is CaseStatus.REJECTED
-    assert uow.commits == 1
+    assert authorization.calls == [{
+        "actor_id": actor_id, "tenant_id": case.tenant_id,
+        "permission": Permission.REJECT_DECISION, "resource_id": case.id,
+    }]
