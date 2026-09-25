@@ -35,6 +35,7 @@ class Decision:
     status: DecisionStatus = DecisionStatus.MADE
     decided_by: UUID | None = None
     _approval_required: bool = field(default=False, repr=False)
+    policy_ids: tuple[UUID, ...] = ()
 
     @classmethod
     def make(
@@ -47,6 +48,7 @@ class Decision:
         rationale: str,
         decided_by: UUID,
         approval_required: bool,
+        policy_ids: tuple[UUID, ...] = (),
     ) -> "Decision":
         if not selected_option_ids:
             raise InvalidDecision("at least one option must be selected")
@@ -75,6 +77,7 @@ class Decision:
             ),
             decided_by=decided_by,
             _approval_required=approval_required,
+            policy_ids=policy_ids,
         )
 
     @property
