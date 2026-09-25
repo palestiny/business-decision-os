@@ -9,7 +9,7 @@ from decision_os.domain.decision import Decision
 class ApproveDecisionCommand:
     tenant_id: UUID
     case_id: UUID
-    decision: Decision
+    decision_id: UUID
 
 
 class ApproveDecisionHandler:
@@ -20,6 +20,14 @@ class ApproveDecisionHandler:
         case = self._uow.decision_cases.get(command.case_id, command.tenant_id)
         if case is None:
             raise ValueError("decision case not found")
-        command.decision.approve()
+
+        decision = self._uow.decisions.get(command.decision_id, command.tenant_id)
+        if decision is None or decision.case_id != case.id:
+            raise ValueError("decision not found")
+
+        decision.approve()
+        self._uow.decisions.save(decision, command.tenant_id)
+        case.approve()
+        self._uow.decision_cases.save(case)
         self._uow.commit()
-        return command.decision
+        return decision
