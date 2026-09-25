@@ -10,6 +10,7 @@ class Permission(StrEnum):
     TRIAGE_CASE = "TRIAGE_CASE"
     MAKE_DECISION = "MAKE_DECISION"
     APPROVE_DECISION = "APPROVE_DECISION"
+    REJECT_DECISION = "REJECT_DECISION"
 
 
 class AuthorizationDenied(PermissionError):
