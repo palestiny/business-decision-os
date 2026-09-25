@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand, ApproveDecisionHandler
+from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand, CreateDecisionCaseHandler
 from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
 from decision_os.application.commands.reject_decision import RejectDecisionCommand, RejectDecisionHandler
 from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
@@ -82,10 +83,30 @@ def move_to_awaiting_decision(case):
     case.await_decision()
 
 
-def test_triage_loads_by_tenant_and_commits():
+def test_create_case_requires_authority_and_commits():
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    uow = Uow(make_case())
+    authorization = Authorization()
+    result = CreateDecisionCaseHandler(uow, authorization).handle(
+        CreateDecisionCaseCommand(tenant_id, "PROJECT_MARGIN_RISK", "Margin risk", actor_id)
+    )
+    assert result.tenant_id == tenant_id
+    assert uow.commits == 1
+    assert authorization.calls[0] == {
+        "actor_id": actor_id, "tenant_id": tenant_id,
+        "permission": Permission.CREATE_CASE, "resource_id": result.id,
+    }
+
+
+def test_triage_loads_by_tenant_and_requires_authority():
     case = make_case()
     uow = Uow(case)
-    result = TriageCaseHandler(uow).handle(TriageCaseCommand(case.tenant_id, case.id))
+    authorization = Authorization()
+    actor_id = uuid4()
+    result = TriageCaseHandler(uow, authorization).handle(
+        TriageCaseCommand(case.tenant_id, case.id, actor_id)
+    )
     assert result.status is CaseStatus.TRIAGED
     assert uow.commits == 1
 
