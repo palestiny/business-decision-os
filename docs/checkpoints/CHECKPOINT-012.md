@@ -13,8 +13,6 @@ Authority enforcement and policy authority at the decision approval boundary.
 - Alembic drift checking is part of CI.
 - The earlier PostgreSQL FK ordering and SQLAlchemy session-cleanup failures are resolved.
 
-SQLAlchemy's current 2.0 documentation continues to require explicit transaction framing: commit on success and rollback after a failed flush/transaction before reusing the Session. citeturn0search0turn0search2
-
 ## Added
 
 - ApproveDecisionCommand carries the approving actor identity.
