@@ -30,7 +30,7 @@ def session():
     with factory() as db:
         yield db
         db.rollback()
-    factory.close_all()
+    factory.close_all_sessions()
 
 
 def seed_tenant(session: Session, tenant_id):
@@ -118,6 +118,7 @@ def test_decision_repository_round_trip_with_selected_option(session: Session) -
     case = make_case(tenant_id)
     case_repository = SQLAlchemyDecisionCaseRepository(session)
     case_repository.add(case)
+    session.flush()
 
     option = DecisionOption(id=uuid4(), case_id=case.id, title="Reduce scope")
     session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
