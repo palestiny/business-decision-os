@@ -61,6 +61,7 @@ class MakeDecisionHandler:
             rationale=command.rationale,
             decided_by=command.actor_id,
             approval_required=approval.required,
+            policy_ids=approval.policy_ids,
         )
         self._uow.decisions.add(decision)
         case.record_decision(approval_required=decision.approval_required)
