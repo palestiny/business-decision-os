@@ -184,12 +184,36 @@ def test_decision_repository_persists_approval_and_rejection_status(session: Ses
     assert approved is not None
     assert approved.status == decision.status
 
+    rejected_case = make_case(tenant_id)
+    case_repository.add(rejected_case)
+    session.flush()
+
+    rejected_option = DecisionOption(id=uuid4(), case_id=rejected_case.id, title="Reject change")
+    session.add(
+        DecisionOptionModel(
+            id=rejected_option.id,
+            case_id=rejected_option.case_id,
+            title=rejected_option.title,
+        )
+    )
+    session.commit()
+
     rejected = Decision.make(
         id=uuid4(),
-        case_id=case.id,
-        available_options=(option,),
-        selected_option_ids=(option.id,),
-        rationale="Alternative requires rejection.",
+        case_id=rejected_case.id,
+        available_options=(rejected_option,),
+        selected_option_ids=(rejected_option.id,),
+        rationale="Reject alternative.",
         decided_by=uuid4(),
         approval_required=True,
     )
+    repository.add(rejected)
+    session.commit()
+
+    rejected.reject()
+    repository.save(rejected, tenant_id)
+    session.commit()
+
+    persisted_rejected = repository.get(rejected.id, tenant_id)
+    assert persisted_rejected is not None
+    assert persisted_rejected.status == rejected.status
