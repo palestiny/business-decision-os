@@ -30,5 +30,4 @@ class TriageCaseHandler:
         )
         case.triage()
         self._uow.decision_cases.save(case)
-        self._uow.commit()
         return case
