@@ -21,7 +21,7 @@ class CreateDecisionCaseHandler:
         self._uow = uow
         self._authorization = authorization
 
-    def handle(self, command: CreateDecisionCaseCommand) -> DecisionCase:
+    def handle(self, command: CreateDecisionCaseCommand, *, commit: bool = True) -> DecisionCase:
         case_id = command.case_id or uuid4()
         self._authorization.require(
             actor_id=command.actor_id,
@@ -36,5 +36,6 @@ class CreateDecisionCaseHandler:
             title=command.title,
         )
         self._uow.decision_cases.add(case)
-        self._uow.commit()
+        if commit:
+            self._uow.commit()
         return case
