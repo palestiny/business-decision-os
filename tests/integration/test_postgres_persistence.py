@@ -110,6 +110,37 @@ def test_rollback_does_not_persist_new_case(session: Session) -> None:
     ) is None
 
 
+def test_decision_repository_round_trip_with_authority_snapshot(session: Session) -> None:
+    tenant_id = uuid4()
+    user_id = uuid4()
+    policy_ids = (uuid4(), uuid4())
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case_repository = SQLAlchemyDecisionCaseRepository(session)
+    case_repository.add(case)
+    session.flush()
+
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Reduce scope")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.commit()
+
+    decision = Decision.make(
+        id=uuid4(), case_id=case.id, available_options=(option,), selected_option_ids=(option.id,),
+        rationale="Protect delivery margin.", decided_by=user_id, approval_required=True,
+        policy_ids=policy_ids,
+    )
+    repository = SQLAlchemyDecisionRepository(session)
+    repository.add(decision)
+    session.commit()
+
+    loaded = repository.get(decision.id, tenant_id)
+
+    assert loaded is not None
+    assert loaded.approval_required is True
+    assert loaded.policy_ids == policy_ids
+
+
 def test_decision_repository_round_trip_with_selected_option(session: Session) -> None:
     tenant_id = uuid4()
     user_id = uuid4()
