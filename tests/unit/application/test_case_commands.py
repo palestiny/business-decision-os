@@ -5,7 +5,7 @@ from decision_os.application.commands.create_decision_case import CreateDecision
 from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
 from decision_os.application.commands.reject_decision import RejectDecisionCommand, RejectDecisionHandler
 from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
-from decision_os.application.ports.authority import ApprovalDecision, Permission
+from decision_os.application.ports.authority import ApprovalDecision, Permission, PolicyEvaluationUnavailable
 from decision_os.domain.decision import Decision, DecisionOption, DecisionStatus
 from decision_os.domain.decision_case import CaseStatus, DecisionCase
 
@@ -129,6 +129,28 @@ def test_make_decision_uses_policy_for_approval_requirement():
     assert case.status is CaseStatus.AWAITING_APPROVAL
     assert authorization.calls[0]["permission"] is Permission.MAKE_DECISION
     assert policy.calls[0]["case_id"] == case.id
+
+
+def test_make_decision_policy_failure_fails_closed_without_mutation_or_commit():
+    case = make_case()
+    move_to_awaiting_decision(case)
+    option = DecisionOption(uuid4(), case.id, "Reduce scope")
+    uow = Uow(case)
+    authorization = Authorization()
+
+    class FailingPolicy:
+        def evaluate(self, **kwargs):
+            raise PolicyEvaluationUnavailable("policy service unavailable")
+
+    with pytest.raises(PolicyEvaluationUnavailable):
+        MakeDecisionHandler(uow, authorization, FailingPolicy()).handle(
+            MakeDecisionCommand(case.tenant_id, case.id, uuid4(), (option.id,), "Protect margin", uuid4()),
+            case_options=(option,),
+        )
+
+    assert uow.decisions.items == {}
+    assert case.status is CaseStatus.AWAITING_DECISION
+    assert uow.commits == 0
 
 
 def test_make_decision_policy_can_allow_immediate_approval():
