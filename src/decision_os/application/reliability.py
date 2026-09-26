@@ -55,7 +55,7 @@ class CreateDecisionCaseReliabilityBoundary:
 
         correlation_id = correlation_id or uuid4()
         try:
-            case = self._handler.handle(command, commit=False)
+            case = self._handler.handle(command)
             now = datetime.now(timezone.utc)
             self._audit.append(
                 AuditEvent(
