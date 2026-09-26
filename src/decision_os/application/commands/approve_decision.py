@@ -39,5 +39,4 @@ class ApproveDecisionHandler:
         self._uow.decisions.save(decision, command.tenant_id)
         case.approve()
         self._uow.decision_cases.save(case)
-        self._uow.commit()
         return decision
