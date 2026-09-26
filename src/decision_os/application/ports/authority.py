@@ -17,6 +17,10 @@ class AuthorizationDenied(PermissionError):
     """Raised when the actor lacks required authority."""
 
 
+class PolicyEvaluationUnavailable(RuntimeError):
+    """Raised when approval policy evaluation cannot produce a trustworthy result."""
+
+
 @dataclass(frozen=True)
 class ApprovalDecision:
     required: bool
