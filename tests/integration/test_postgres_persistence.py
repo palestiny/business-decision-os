@@ -1,10 +1,14 @@
 import os
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, close_all_sessions
 
+from decision_os.application.ports.audit import AuditEvent
+from decision_os.application.ports.idempotency import IdempotencyConflict
+from decision_os.application.ports.outbox import OutboxMessage
 from decision_os.domain.decision import Decision, DecisionOption
 from decision_os.domain.decision_case import DecisionCase
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
@@ -13,6 +17,11 @@ from decision_os.infrastructure.persistence.models.decision_case import Decision
 from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
 from decision_os.infrastructure.persistence.session import build_session_factory
+from decision_os.infrastructure.persistence.repositories.reliability import (
+    SQLAlchemyAuditRepository,
+    SQLAlchemyIdempotencyRepository,
+    SQLAlchemyOutboxRepository,
+)
 
 
 DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
@@ -248,3 +257,71 @@ def test_decision_repository_persists_approval_and_rejection_status(session: Ses
     persisted_rejected = repository.get(rejected.id, tenant_id)
     assert persisted_rejected is not None
     assert persisted_rejected.status == rejected.status
+
+
+def test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    idempotency = SQLAlchemyIdempotencyRepository(session)
+    audit = SQLAlchemyAuditRepository(session)
+    outbox = SQLAlchemyOutboxRepository(session)
+
+    record = idempotency.reserve(
+        tenant_id=tenant_id,
+        operation="CreateDecisionCase",
+        key="integration-1",
+        request_hash="hash-1",
+    )
+    assert record.status == "IN_PROGRESS"
+
+    case_id = uuid4()
+    now = datetime.now(timezone.utc)
+    audit.append(
+        AuditEvent(
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            action="CreateDecisionCase",
+            entity_type="DecisionCase",
+            entity_id=case_id,
+            occurred_at=now,
+            correlation_id=uuid4(),
+        )
+    )
+    outbox.add(
+        OutboxMessage(
+            id=uuid4(),
+            topic="decision-case.created",
+            aggregate_type="DecisionCase",
+            aggregate_id=case_id,
+            payload='{"case_id": "' + str(case_id) + '"}',
+            occurred_at=now,
+        )
+    )
+    idempotency.complete(
+        tenant_id=tenant_id,
+        operation="CreateDecisionCase",
+        key="integration-1",
+        response_status=201,
+        response_body='{"id": "' + str(case_id) + '"}',
+    )
+    session.commit()
+
+    completed = idempotency.reserve(
+        tenant_id=tenant_id,
+        operation="CreateDecisionCase",
+        key="integration-1",
+        request_hash="hash-1",
+    )
+    assert completed.status == "COMPLETED"
+    assert completed.response_status == 201
+    assert str(case_id) in (completed.response_body or "")
+
+    with pytest.raises(IdempotencyConflict):
+        idempotency.reserve(
+            tenant_id=tenant_id,
+            operation="CreateDecisionCase",
+            key="integration-1",
+            request_hash="different-hash",
+        )
