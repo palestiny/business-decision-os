@@ -1,7 +1,6 @@
 """Application reliability boundary for externally retryable commands."""
 import hashlib
 import json
-from dataclasses import asdict
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
