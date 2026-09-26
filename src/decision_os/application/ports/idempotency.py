@@ -19,6 +19,8 @@ class IdempotencyRecord:
     key: str
     request_hash: str
     status: str
+    response_status: int | None = None
+    response_body: str | None = None
 
 
 class IdempotencyPort(Protocol):
