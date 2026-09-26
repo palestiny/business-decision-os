@@ -66,5 +66,4 @@ class MakeDecisionHandler:
         self._uow.decisions.add(decision)
         case.record_decision(approval_required=decision.approval_required)
         self._uow.decision_cases.save(case)
-        self._uow.commit()
         return decision
