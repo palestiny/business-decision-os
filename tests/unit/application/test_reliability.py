@@ -158,3 +158,22 @@ def test_create_case_rejects_same_key_for_different_request():
     )
     with pytest.raises(IdempotencyConflict):
         boundary.execute(changed, idempotency_key="req-1")
+
+
+def test_create_case_rejects_same_key_while_request_is_in_progress():
+    boundary, _ = build_boundary()
+    command = CreateDecisionCaseCommand(
+        tenant_id=uuid4(),
+        case_type="PROJECT_MARGIN_RISK",
+        title="Margin risk",
+        actor_id=uuid4(),
+    )
+    boundary._idempotency.reserve(
+        tenant_id=command.tenant_id,
+        operation=boundary.OPERATION,
+        key="req-1",
+        request_hash=boundary._request_hash(command),
+    )
+
+    with pytest.raises(RequestInProgress):
+        boundary.execute(command, idempotency_key="req-1")
