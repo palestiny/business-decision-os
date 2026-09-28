@@ -345,7 +345,8 @@ def test_create_case_reliability_boundary_rolls_back_all_postgres_writes_on_fail
             IdempotencyRecordModel.key == "atomic-failure",
         )
     ) is None
-\ndef test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
+
+def test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
     tenant_id = uuid4()
     actor_id = uuid4()
     seed_tenant(session, tenant_id)
