@@ -648,4 +648,3 @@ def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None
     )
     assert idempotency_row is not None
     assert idempotency_row.status == "COMPLETED"
-}
