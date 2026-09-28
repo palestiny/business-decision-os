@@ -13,7 +13,7 @@ from decision_os.application.ports.idempotency import (
     IdempotencyRecord,
     RequestInProgress,
 )
-from decision_os.application.ports.outbox import OutboxMessage
+from decision_os.application.ports.outbox import OutboxMessage, OutboxRecord
 from decision_os.infrastructure.persistence.models.reliability import (
     AuditEventModel,
     IdempotencyRecordModel,
