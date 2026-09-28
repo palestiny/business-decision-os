@@ -21,9 +21,10 @@ from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.application.ports.authority import AuthorizationDenied, PolicyEvaluationUnavailable
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.domain.decision_case import DomainError
+from decision_os.domain.decision import DecisionError
 
 
-def create_app(*, create_case_boundary, triage_case_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -67,12 +68,14 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, principal_pro
     app.add_exception_handler(RequestInProgress, request_in_progress_handler)
     app.add_exception_handler(PolicyEvaluationUnavailable, policy_unavailable_handler)
     app.add_exception_handler(DomainError, domain_error_handler)
+    app.add_exception_handler(DecisionError, domain_error_handler)
     app.add_exception_handler(Exception, unexpected_error_handler)
 
     app.include_router(
         build_router(
             boundary=create_case_boundary,
             triage_boundary=triage_case_boundary,
+            make_decision_boundary=make_decision_boundary,
             principal_provider=principal_provider,
         )
     )
