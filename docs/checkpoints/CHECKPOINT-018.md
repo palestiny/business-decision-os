@@ -2,7 +2,7 @@
 
 ## Status
 
-CONTRACT PASS — runtime verification pending
+PASS — HTTP create-case contract and runtime verification
 
 ## Verified
 
@@ -40,8 +40,18 @@ tests/unit/application/test_api_contract.py
 tests/unit/application/test_api_error_mapping.py
 tests/integration/test_http_api_postgres.py
 
-The integration proof is committed but requires CI/runtime execution for verification.
+CI run #230 verified the HTTP integration path on Python 3.12 and 3.13. Alembic lifecycle/checks and the full pytest suite passed. The PostgreSQL-backed integration proof therefore has runtime verification.
+
+## Runtime Evidence
+
+CI run #230 (`36468174073`) passed on both Python 3.12 and 3.13. The jobs completed:
+- Alembic upgrade/downgrade/upgrade lifecycle;
+- Alembic current --check-heads;
+- Alembic check;
+- full pytest suite.
+
+The HTTP integration test covers the real PostgreSQL reliability boundary, idempotency replay, durable case persistence, audit creation, and outbox creation.
 
 ## Next Proof
 
-Run the first end-to-end HTTP integration path against PostgreSQL and the real application reliability boundary, including durable idempotency replay and outbox creation.
+Add the next HTTP command boundary: POST /api/v1/decision-cases/{id}/triage, preserving the same API/application/reliability separation.
