@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request
 
-from decision_os.application.api.dependencies import get_principal
+from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
@@ -27,7 +27,7 @@ def build_router(
     def create_decision_case(
         body: CreateDecisionCaseRequest,
         request: Request,
-        principal: AuthenticatedPrincipal = Depends(get_principal),
+        principal: AuthenticatedPrincipal = Depends(principal_provider),
         idempotency_key: str = Header(..., alias="Idempotency-Key"),
     ) -> dict[str, object]:
         case = boundary.execute(
