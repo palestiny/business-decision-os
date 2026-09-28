@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 
 from decision_os.application.api.dependencies import get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
@@ -26,6 +26,7 @@ def build_router(
     @router.post("/decision-cases", status_code=201)
     def create_decision_case(
         body: CreateDecisionCaseRequest,
+        request: Request,
         principal: AuthenticatedPrincipal = Depends(get_principal),
         idempotency_key: str = Header(..., alias="Idempotency-Key"),
     ) -> dict[str, object]:
@@ -38,6 +39,7 @@ def build_router(
                 case_id=body.case_id,
             ),
             idempotency_key=idempotency_key,
+            correlation_id=request.state.correlation_id,
         )
         return {
             "data": {
@@ -47,7 +49,8 @@ def build_router(
                 "title": case.title,
                 "status": case.status.value,
                 "version": case.version,
-            }
+            },
+            "correlation_id": str(request.state.correlation_id),
         }
 
     return router
