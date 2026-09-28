@@ -6,16 +6,26 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, close_all_sessions
 
+from decision_os.application.commands.create_decision_case import (
+    CreateDecisionCaseCommand,
+    CreateDecisionCaseHandler,
+)
 from decision_os.application.ports.audit import AuditEvent
+from decision_os.application.ports.authority import Permission
+from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.ports.idempotency import IdempotencyConflict
 from decision_os.application.ports.outbox import OutboxMessage
 from decision_os.domain.decision import Decision, DecisionOption
 from decision_os.domain.decision_case import DecisionCase
+from decision_os.infrastructure.persistence.models.audit import AuditEventModel
+from decision_os.infrastructure.persistence.models.idempotency import IdempotencyRecordModel
+from decision_os.infrastructure.persistence.models.outbox import OutboxMessageModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
+from decision_os.infrastructure.persistence.uow import SQLAlchemyUnitOfWork
 from decision_os.infrastructure.persistence.session import build_session_factory
 from decision_os.infrastructure.persistence.repositories.reliability import (
     SQLAlchemyAuditRepository,
@@ -40,6 +50,23 @@ def session():
         yield db
         db.rollback()
     close_all_sessions()
+
+
+class AllowCreateCaseAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.CREATE_CASE
+
+
+class FailingIdempotencyCompletion:
+    def __init__(self, delegate):
+        self._delegate = delegate
+
+    def reserve(self, **kwargs):
+        return self._delegate.reserve(**kwargs)
+
+    def complete(self, **kwargs):
+        self._delegate.complete(**kwargs)
+        raise RuntimeError("forced reliability failure")
 
 
 def seed_tenant(session: Session, tenant_id):
