@@ -2,7 +2,7 @@
 
 ## Status
 
-PASS — contract and unit proof committed
+CONTRACT PASS — runtime verification pending
 
 ## Verified
 
@@ -37,10 +37,10 @@ Proof covers:
 ## Evidence
 
 tests/unit/application/test_api_contract.py
-
 tests/unit/application/test_api_error_mapping.py
+tests/integration/test_http_api_postgres.py
 
-CI must confirm the complete repository suite after this checkpoint.
+The integration proof is committed but requires CI/runtime execution for verification.
 
 ## Next Proof
 
