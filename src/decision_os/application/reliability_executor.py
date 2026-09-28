@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from decision_os.application.ports.audit import AuditEvent, AuditPort
 from decision_os.application.ports.idempotency import IdempotencyPort
-from decision_os.application.ports.outbox import OutboxPort
+from decision_os.application.ports.outbox import OutboxMessage, OutboxPort
 from decision_os.application.ports.unit_of_work import UnitOfWork
 
 TCommand = TypeVar("TCommand")
@@ -70,24 +70,24 @@ class ReliabilityExecutor(Generic[TCommand, TResult]):
         try:
             result = spec.execute(command)
             now = datetime.now(timezone.utc)
+            entity_id = spec.entity_id(result)
             self._audit.append(
                 AuditEvent(
                     tenant_id=tenant_id,
                     actor_id=spec.actor_id(command),
                     action=spec.operation,
                     entity_type=spec.entity_type,
-                    entity_id=spec.entity_id(result),
+                    entity_id=entity_id,
                     occurred_at=now,
                     correlation_id=correlation_id,
                 )
             )
-            from decision_os.application.ports.outbox import OutboxMessage
             self._outbox.add(
                 OutboxMessage(
                     id=uuid4(),
                     topic=spec.outbox_topic,
                     aggregate_type=spec.entity_type,
-                    aggregate_id=spec.entity_id(result),
+                    aggregate_id=entity_id,
                     payload=spec.outbox_payload(result),
                     occurred_at=now,
                 )
