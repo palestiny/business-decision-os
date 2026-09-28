@@ -15,7 +15,8 @@ from decision_os.application.api.errors import (
     request_in_progress_handler,
     unexpected_error_handler,
 )
-from decision_os.application.api.routes import build_router\nfrom decision_os.application.api.dependencies import PrincipalProvider, get_principal
+from decision_os.application.api.routes import build_router
+from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.application.ports.authority import AuthorizationDenied, PolicyEvaluationUnavailable
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
