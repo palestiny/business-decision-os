@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand, ApproveDecisionHandler
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand, CreateDecisionCaseHandler
 from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
@@ -83,7 +85,7 @@ def move_to_awaiting_decision(case):
     case.await_decision()
 
 
-def test_create_case_requires_authority_and_commits():
+def test_create_case_requires_authority_without_committing():
     tenant_id = uuid4()
     actor_id = uuid4()
     uow = Uow(make_case())
@@ -92,14 +94,14 @@ def test_create_case_requires_authority_and_commits():
         CreateDecisionCaseCommand(tenant_id, "PROJECT_MARGIN_RISK", "Margin risk", actor_id)
     )
     assert result.tenant_id == tenant_id
-    assert uow.commits == 1
+    assert uow.commits == 0
     assert authorization.calls[0] == {
         "actor_id": actor_id, "tenant_id": tenant_id,
         "permission": Permission.CREATE_CASE, "resource_id": result.id,
     }
 
 
-def test_triage_loads_by_tenant_and_requires_authority():
+def test_triage_loads_by_tenant_and_requires_authority_without_committing():
     case = make_case()
     uow = Uow(case)
     authorization = Authorization()
@@ -108,7 +110,7 @@ def test_triage_loads_by_tenant_and_requires_authority():
         TriageCaseCommand(case.tenant_id, case.id, actor_id)
     )
     assert result.status is CaseStatus.TRIAGED
-    assert uow.commits == 1
+    assert uow.commits == 0
 
 
 def test_make_decision_uses_policy_for_approval_requirement():
@@ -190,13 +192,14 @@ def test_approve_decision_requires_authority_and_persists_by_tenant():
 
     assert result.status is DecisionStatus.APPROVED
     assert case.status is CaseStatus.APPROVED
+    assert uow.commits == 0
     assert authorization.calls == [{
         "actor_id": actor_id, "tenant_id": case.tenant_id,
         "permission": Permission.APPROVE_DECISION, "resource_id": case.id,
     }]
 
 
-def test_reject_decision_requires_authority_and_persists_rejection():
+def test_reject_decision_requires_authority_and_persists_rejection_without_committing():
     case = make_case()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Reduce scope")
@@ -216,6 +219,7 @@ def test_reject_decision_requires_authority_and_persists_rejection():
 
     assert result.status is DecisionStatus.REJECTED
     assert case.status is CaseStatus.REJECTED
+    assert uow.commits == 0
     assert authorization.calls == [{
         "actor_id": actor_id, "tenant_id": case.tenant_id,
         "permission": Permission.REJECT_DECISION, "resource_id": case.id,
