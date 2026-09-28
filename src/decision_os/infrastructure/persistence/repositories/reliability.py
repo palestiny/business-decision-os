@@ -146,3 +146,36 @@ class SQLAlchemyOutboxRepository:
                 occurred_at=message.occurred_at,
             )
         )
+
+    def get_unpublished(self, *, limit: int = 100) -> tuple[OutboxRecord, ...]:
+        models = self._session.scalars(
+            select(OutboxMessageModel)
+            .where(OutboxMessageModel.published_at.is_(None))
+            .order_by(OutboxMessageModel.occurred_at, OutboxMessageModel.id)
+            .limit(limit)
+        ).all()
+        return tuple(
+            OutboxRecord(
+                id=model.id,
+                topic=model.topic,
+                aggregate_type=model.aggregate_type,
+                aggregate_id=model.aggregate_id,
+                payload=json.dumps(model.payload, sort_keys=True),
+                occurred_at=model.occurred_at,
+                published_at=model.published_at,
+            )
+            for model in models
+        )
+
+    def mark_published(self, *, message_id: UUID, published_at: datetime) -> None:
+        result = self._session.execute(
+            update(OutboxMessageModel)
+            .where(
+                OutboxMessageModel.id == message_id,
+                OutboxMessageModel.published_at.is_(None),
+            )
+            .values(published_at=published_at)
+        )
+        if result.rowcount != 1:
+            raise RuntimeError("outbox message is already published or missing")
+        self._session.commit()
