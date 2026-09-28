@@ -36,6 +36,16 @@ class OutboxPublicationPort(Protocol):
         ...
 
 
+class PublicationTransactionPort(Protocol):
+    """Owns the database transaction for an outbox publication attempt."""
+
+    def commit(self) -> None:
+        ...
+
+    def rollback(self) -> None:
+        ...
+
+
 class OutboxRepositoryPort(Protocol):
     def get_unpublished(self, *, limit: int = 100) -> tuple[OutboxRecord, ...]:
         ...
