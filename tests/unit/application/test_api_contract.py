@@ -96,3 +96,77 @@ def test_correlation_id_is_generated_and_returned():
 
     assert response.status_code == 201
     assert response.headers["X-Correlation-ID"]
+
+
+def test_triage_case_uses_authenticated_identity_and_stable_response():
+    from decision_os.domain.decision_case import DecisionCase
+
+    class TriageBoundary:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            self.calls.append((command, idempotency_key, correlation_id))
+            return DecisionCase(
+                id=command.case_id,
+                tenant_id=command.tenant_id,
+                case_type="PROJECT_MARGIN_RISK",
+                title="Margin risk",
+                status=CaseStatus.TRIAGED,
+                version=1,
+            )
+
+    create_boundary = Boundary()
+    triage_boundary = TriageBoundary()
+    app = create_app(
+        create_case_boundary=create_boundary,
+        triage_case_boundary=triage_boundary,
+    )
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(
+            actor_id=uuid4(),
+            tenant_id=uuid4(),
+        )
+        return await call_next(request)
+
+    client = TestClient(app)
+    case_id = uuid4()
+    response = client.post(
+        f"/api/v1/decision-cases/{case_id}/triage",
+        headers={"Idempotency-Key": "triage-001"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"data", "correlation_id"}
+    assert body["data"]["id"] == str(case_id)
+    assert body["data"]["status"] == "TRIAGED"
+    assert body["data"]["version"] == 1
+    assert body["correlation_id"] == response.headers["X-Correlation-ID"]
+    assert triage_boundary.calls[0][0].case_id == case_id
+    assert triage_boundary.calls[0][1] == "triage-001"
+
+
+def test_triage_case_requires_idempotency_key():
+    class TriageBoundary:
+        def execute(self, *args, **kwargs):
+            raise AssertionError("boundary must not run")
+
+    app = create_app(
+        create_case_boundary=Boundary(),
+        triage_case_boundary=TriageBoundary(),
+    )
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    response = TestClient(app).post(
+        f"/api/v1/decision-cases/{uuid4()}/triage",
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
