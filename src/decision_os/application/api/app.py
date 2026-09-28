@@ -2,8 +2,8 @@
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 from decision_os.application.api.errors import (
     authentication_required_handler,
@@ -28,13 +28,25 @@ def create_app(*, create_case_boundary) -> FastAPI:
     @app.middleware("http")
     async def correlation_middleware(request: Request, call_next):
         supplied = request.headers.get("X-Correlation-ID")
-        try:
-            correlation_id = UUID(supplied) if supplied else uuid4()
-        except ValueError:
-            correlation_id = None
-        request.state.correlation_id = correlation_id or uuid4()
+        if supplied:
+            try:
+                correlation_id = UUID(supplied)
+            except ValueError:
+                correlation_id = uuid4()
+                request.state.correlation_id = correlation_id
+                return JSONResponse(
+                    status_code=422,
+                    content=error_payload(
+                        "VALIDATION_ERROR",
+                        "The X-Correlation-ID header must be a UUID.",
+                        str(correlation_id),
+                    ),
+                )
+        else:
+            correlation_id = uuid4()
+        request.state.correlation_id = correlation_id
         response = await call_next(request)
-        response.headers["X-Correlation-ID"] = str(request.state.correlation_id)
+        response.headers["X-Correlation-ID"] = str(correlation_id)
         return response
 
     @app.exception_handler(RequestValidationError)
