@@ -23,7 +23,7 @@ from decision_os.application.ports.idempotency import IdempotencyConflict, Reque
 from decision_os.domain.decision_case import DomainError
 
 
-def create_app(*, create_case_boundary, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -69,5 +69,11 @@ def create_app(*, create_case_boundary, principal_provider: PrincipalProvider = 
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(Exception, unexpected_error_handler)
 
-    app.include_router(build_router(boundary=create_case_boundary, principal_provider=principal_provider))
+    app.include_router(
+        build_router(
+            boundary=create_case_boundary,
+            triage_boundary=triage_case_boundary,
+            principal_provider=principal_provider,
+        )
+    )
     return app
