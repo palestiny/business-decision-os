@@ -9,7 +9,6 @@ from decision_os.application.commands.create_decision_case import (
 from decision_os.application.ports.authority import Permission
 from decision_os.application.ports.idempotency import IdempotencyConflict, IdempotencyRecord, RequestInProgress
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
-from decision_os.domain.decision_case import DecisionCase
 
 
 class Cases:
@@ -90,7 +89,12 @@ class Outbox:
         self.messages.append(message)
 
 
-def build_boundary():
+class FailingOutbox(Outbox):
+    def add(self, message):
+        raise RuntimeError("outbox persistence failed")
+
+
+def build_boundary(outbox=None):
     uow = Uow()
     handler = CreateDecisionCaseHandler(uow, Authorization())
     return (
@@ -99,7 +103,7 @@ def build_boundary():
             handler=handler,
             idempotency=Idempotency(),
             audit=Audit(),
-            outbox=Outbox(),
+            outbox=outbox or Outbox(),
         ),
         uow,
     )
@@ -177,3 +181,20 @@ def test_create_case_rejects_same_key_while_request_is_in_progress():
 
     with pytest.raises(RequestInProgress):
         boundary.execute(command, idempotency_key="req-1")
+
+
+def test_create_case_rolls_back_when_reliability_write_fails():
+    boundary, uow = build_boundary(outbox=FailingOutbox())
+    command = CreateDecisionCaseCommand(
+        tenant_id=uuid4(),
+        case_type="PROJECT_MARGIN_RISK",
+        title="Margin risk",
+        actor_id=uuid4(),
+    )
+
+    with pytest.raises(RuntimeError, match="outbox persistence failed"):
+        boundary.execute(command, idempotency_key="req-1")
+
+    assert uow.commits == 0
+    assert uow.rollbacks == 1
+    assert boundary._idempotency.completed == 0
