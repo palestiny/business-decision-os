@@ -8,6 +8,18 @@ from decision_os.application.outbox_publication import (
 from decision_os.application.ports.outbox import OutboxRecord
 
 
+class Transaction:
+    def __init__(self):
+        self.commits = 0
+        self.rollbacks = 0
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+
 class Repository:
     def __init__(self, messages):
         self.messages = list(messages)
@@ -49,23 +61,31 @@ def test_publication_marks_record_only_after_successful_external_publish():
     record = message()
     repository = Repository([record])
     publisher = Publisher()
-    result = OutboxPublicationService(repository=repository, publisher=publisher).publish_one(record)
+    transaction = Transaction()
+    result = OutboxPublicationService(repository=repository, publisher=publisher, transaction=transaction).publish_one(record)
 
     assert result.published is True
     assert result.outcome_known is True
     assert publisher.published == [record]
     assert repository.marked[0][0] == record.id
+    assert transaction.commits == 1
+    assert transaction.rollbacks == 0
 
 
 def test_external_timeout_is_unknown_and_does_not_mark_published():
     record = message()
     repository = Repository([record])
     publisher = UnknownPublisher()
-    result = OutboxPublicationService(repository=repository, publisher=publisher).publish_one(record)
+    transaction = Transaction()
+    result = OutboxPublicationService(repository=repository, publisher=publisher, transaction=transaction).publish_one(record)
 
     assert result.published is False
     assert result.outcome_known is False
     assert repository.marked == []
+    assert transaction.commits == 0
+    assert transaction.rollbacks == 0
+    assert transaction.commits == 0
+    assert transaction.rollbacks == 0
 
 
 def test_already_published_record_is_not_published_again():
@@ -81,7 +101,8 @@ def test_already_published_record_is_not_published_again():
     )
     repository = Repository([published])
     publisher = Publisher()
-    result = OutboxPublicationService(repository=repository, publisher=publisher).publish_one(published)
+    transaction = Transaction()
+    result = OutboxPublicationService(repository=repository, publisher=publisher, transaction=transaction).publish_one(published)
 
     assert result.published is True
     assert result.outcome_known is True
