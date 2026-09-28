@@ -257,3 +257,76 @@ def test_make_decision_requires_idempotency_key():
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_approve_decision_uses_authenticated_identity_and_stable_response():
+    from decision_os.domain.decision import Decision, DecisionStatus
+
+    class ApproveDecisionBoundary:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            self.calls.append((command, idempotency_key, correlation_id))
+            return Decision(
+                id=command.decision_id,
+                case_id=command.case_id,
+                selected_option_ids=(uuid4(),),
+                rationale="Protect project margin.",
+                status=DecisionStatus.APPROVED,
+                decided_by=uuid4(),
+                _approval_required=True,
+                policy_ids=(uuid4(),),
+            )
+
+    boundary = ApproveDecisionBoundary()
+    app = create_app(
+        create_case_boundary=Boundary(),
+        approve_decision_boundary=boundary,
+    )
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    case_id = uuid4()
+    decision_id = uuid4()
+    response = TestClient(app).post(
+        f"/api/v1/decision-cases/{case_id}/decision/{decision_id}/approve",
+        headers={"Idempotency-Key": "approve-001"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"data", "correlation_id"}
+    assert body["data"]["id"] == str(decision_id)
+    assert body["data"]["case_id"] == str(case_id)
+    assert body["data"]["status"] == "APPROVED"
+    assert body["data"]["approval_required"] is True
+    assert body["correlation_id"] == response.headers["X-Correlation-ID"]
+    assert boundary.calls[0][1] == "approve-001"
+    assert boundary.calls[0][0].actor_id == boundary.calls[0][0].actor_id
+
+
+def test_approve_decision_requires_idempotency_key():
+    class ApproveDecisionBoundary:
+        def execute(self, *args, **kwargs):
+            raise AssertionError("boundary must not run")
+
+    app = create_app(
+        create_case_boundary=Boundary(),
+        approve_decision_boundary=ApproveDecisionBoundary(),
+    )
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    response = TestClient(app).post(
+        f"/api/v1/decision-cases/{uuid4()}/decision/{uuid4()}/approve",
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
