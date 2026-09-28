@@ -753,6 +753,7 @@ def test_make_decision_policy_unavailable_does_not_persist_postgres_state(sessio
     case.version = 1
     seed_tenant(session, tenant_id)
     SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.flush()
     option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
     session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
     session.commit()
