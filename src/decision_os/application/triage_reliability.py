@@ -1,22 +1,20 @@
-"""Application reliability boundary for case triage.
-
-This is the second command-specific proof before extracting a generic
-execution abstraction.
-"""
+"""Application reliability boundary for case triage."""
 import hashlib
 import json
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
-from decision_os.application.ports.audit import AuditEvent, AuditPort
+from decision_os.application.ports.audit import AuditPort
 from decision_os.application.ports.idempotency import IdempotencyPort
-from decision_os.application.ports.outbox import OutboxMessage, OutboxPort
+from decision_os.application.ports.outbox import OutboxPort
 from decision_os.application.ports.unit_of_work import UnitOfWork
+from decision_os.application.reliability_executor import ReliabilityExecutor, ReliabilitySpec
 from decision_os.domain.decision_case import CaseStatus, DecisionCase
 
 
 class TriageCaseReliabilityBoundary:
+    """Command-specific triage reliability contract backed by the generic executor."""
+
     OPERATION = "TriageCase"
     RESPONSE_STATUS = 200
 
@@ -34,6 +32,12 @@ class TriageCaseReliabilityBoundary:
         self._idempotency = idempotency
         self._audit = audit
         self._outbox = outbox
+        self._executor = ReliabilityExecutor(
+            uow=uow,
+            idempotency=idempotency,
+            audit=audit,
+            outbox=outbox,
+        )
 
     def execute(
         self,
@@ -42,61 +46,32 @@ class TriageCaseReliabilityBoundary:
         idempotency_key: str,
         correlation_id: UUID | None = None,
     ) -> DecisionCase:
-        request_hash = self._request_hash(command)
-        record = self._idempotency.reserve(
-            tenant_id=command.tenant_id,
-            operation=self.OPERATION,
-            key=idempotency_key,
-            request_hash=request_hash,
-        )
-        if record.status == "COMPLETED":
-            return self._deserialize_case(record.response_body)
-
-        correlation_id = correlation_id or uuid4()
-        try:
-            case = self._handler.handle(command)
-            now = datetime.now(timezone.utc)
-            self._audit.append(
-                AuditEvent(
-                    tenant_id=case.tenant_id,
-                    actor_id=command.actor_id,
-                    action=self.OPERATION,
-                    entity_type="DecisionCase",
-                    entity_id=case.id,
-                    occurred_at=now,
-                    correlation_id=correlation_id,
-                )
-            )
-            self._outbox.add(
-                OutboxMessage(
-                    id=uuid4(),
-                    topic="decision-case.triaged",
-                    aggregate_type="DecisionCase",
-                    aggregate_id=case.id,
-                    payload=json.dumps(
-                        {
-                            "case_id": str(case.id),
-                            "tenant_id": str(case.tenant_id),
-                            "status": case.status.value,
-                        },
-                        sort_keys=True,
-                    ),
-                    occurred_at=now,
-                )
-            )
-            response_body = self._serialize_case(case)
-            self._idempotency.complete(
-                tenant_id=command.tenant_id,
+        return self._executor.execute(
+            command,
+            spec=ReliabilitySpec(
                 operation=self.OPERATION,
-                key=idempotency_key,
                 response_status=self.RESPONSE_STATUS,
-                response_body=response_body,
-            )
-            self._uow.commit()
-            return case
-        except Exception:
-            self._uow.rollback()
-            raise
+                tenant_id=lambda value: value.tenant_id,
+                request_hash=self._request_hash,
+                actor_id=lambda value: value.actor_id,
+                execute=self._handler.handle,
+                entity_id=lambda value: value.id,
+                entity_type="DecisionCase",
+                serialize=self._serialize_case,
+                deserialize=self._deserialize_case,
+                outbox_topic="decision-case.triaged",
+                outbox_payload=lambda case: json.dumps(
+                    {
+                        "case_id": str(case.id),
+                        "tenant_id": str(case.tenant_id),
+                        "status": case.status.value,
+                    },
+                    sort_keys=True,
+                ),
+            ),
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+        )
 
     @staticmethod
     def _request_hash(command: TriageCaseCommand) -> str:
