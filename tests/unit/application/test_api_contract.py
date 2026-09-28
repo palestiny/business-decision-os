@@ -306,7 +306,6 @@ def test_approve_decision_uses_authenticated_identity_and_stable_response():
     assert body["data"]["approval_required"] is True
     assert body["correlation_id"] == response.headers["X-Correlation-ID"]
     assert boundary.calls[0][1] == "approve-001"
-    assert boundary.calls[0][0].actor_id == boundary.calls[0][0].actor_id
 
 
 def test_approve_decision_requires_idempotency_key():
