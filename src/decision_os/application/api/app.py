@@ -24,7 +24,7 @@ from decision_os.domain.decision_case import DomainError
 from decision_os.domain.decision import DecisionError
 
 
-def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -76,6 +76,7 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
             boundary=create_case_boundary,
             triage_boundary=triage_case_boundary,
             make_decision_boundary=make_decision_boundary,
+            approve_decision_boundary=approve_decision_boundary,
             principal_provider=principal_provider,
         )
     )
