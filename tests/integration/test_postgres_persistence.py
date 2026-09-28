@@ -13,6 +13,8 @@ from decision_os.application.commands.create_decision_case import (
 from decision_os.application.ports.audit import AuditEvent
 from decision_os.application.ports.authority import Permission
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
+from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
+from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.ports.idempotency import IdempotencyConflict
 from decision_os.application.ports.outbox import OutboxMessage
 from decision_os.domain.decision import Decision, DecisionOption
@@ -57,6 +59,20 @@ def session():
 class AllowCreateCaseAuthorization:
     def require(self, *, permission, **kwargs):
         assert permission is Permission.CREATE_CASE
+
+
+class AllowTriageCaseAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.TRIAGE_CASE
+
+
+class FailingOutbox:
+    def __init__(self, delegate):
+        self._delegate = delegate
+
+    def add(self, message):
+        self._delegate.add(message)
+        raise RuntimeError("forced outbox failure")
 
 
 class FailingIdempotencyCompletion:
@@ -441,3 +457,96 @@ def test_reliability_adapters_persist_in_one_transaction(session: Session) -> No
             key="integration-1",
             request_hash="different-hash",
         )
+
+
+def test_triage_case_reliability_boundary_persists_atomic_postgres_transaction(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.id = case_id
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = TriageCaseReliabilityBoundary(
+        uow=uow,
+        handler=TriageCaseHandler(uow, AllowTriageCaseAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    command = TriageCaseCommand(tenant_id=tenant_id, case_id=case_id, actor_id=actor_id)
+
+    result = boundary.execute(command, idempotency_key="triage-atomic-success")
+
+    assert result.status.value == "TRIAGED"
+    persisted = session.scalar(
+        select(DecisionCaseModel).where(DecisionCaseModel.id == case_id)
+    )
+    assert persisted is not None
+    assert persisted.status == "TRIAGED"
+    assert persisted.version == 1
+    assert session.scalar(
+        select(AuditEventModel).where(AuditEventModel.entity_id == case_id)
+    ) is not None
+    assert session.scalar(
+        select(OutboxMessageModel).where(OutboxMessageModel.aggregate_id == case_id)
+    ) is not None
+    idempotency_row = session.scalar(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.tenant_id == tenant_id,
+            IdempotencyRecordModel.operation == "TriageCase",
+            IdempotencyRecordModel.key == "triage-atomic-success",
+        )
+    )
+    assert idempotency_row is not None
+    assert idempotency_row.status == "COMPLETED"
+
+
+def test_triage_case_reliability_boundary_rolls_back_all_postgres_writes_on_failure(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.id = case_id
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    real_outbox = SQLAlchemyOutboxRepository(session)
+    boundary = TriageCaseReliabilityBoundary(
+        uow=uow,
+        handler=TriageCaseHandler(uow, AllowTriageCaseAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=FailingOutbox(real_outbox),
+    )
+    command = TriageCaseCommand(tenant_id=tenant_id, case_id=case_id, actor_id=actor_id)
+
+    with pytest.raises(RuntimeError, match="forced outbox failure"):
+        boundary.execute(command, idempotency_key="triage-atomic-failure")
+
+    persisted = session.scalar(
+        select(DecisionCaseModel).where(DecisionCaseModel.id == case_id)
+    )
+    assert persisted is not None
+    assert persisted.status == "DETECTED"
+    assert persisted.version == 0
+    assert session.scalar(
+        select(AuditEventModel).where(AuditEventModel.entity_id == case_id)
+    ) is None
+    assert session.scalar(
+        select(OutboxMessageModel).where(OutboxMessageModel.aggregate_id == case_id)
+    ) is None
+    assert session.scalar(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.tenant_id == tenant_id,
+            IdempotencyRecordModel.operation == "TriageCase",
+            IdempotencyRecordModel.key == "triage-atomic-failure",
+        )
+    ) is None
