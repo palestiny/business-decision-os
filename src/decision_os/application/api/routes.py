@@ -9,9 +9,11 @@ from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
+from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand
+from decision_os.application.commands.approve_decision import ApproveDecisionCommand
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,7 @@ def build_router(
     boundary: CreateDecisionCaseReliabilityBoundary,
     triage_boundary: TriageCaseReliabilityBoundary | None = None,
     make_decision_boundary: MakeDecisionReliabilityBoundary | None = None,
+    approve_decision_boundary: ApproveDecisionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -123,6 +126,27 @@ def build_router(
                     decision_id=body.decision_id,
                     option_ids=body.option_ids,
                     rationale=body.rationale,
+                ),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return _decision_response(decision, request.state.correlation_id)
+
+    if approve_decision_boundary is not None:
+        @router.post("/decision-cases/{case_id}/decision/{decision_id}/approve", status_code=200)
+        def approve_decision(
+            case_id: UUID,
+            decision_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            decision = approve_decision_boundary.execute(
+                ApproveDecisionCommand(
+                    tenant_id=principal.tenant_id,
+                    actor_id=principal.actor_id,
+                    case_id=case_id,
+                    decision_id=decision_id,
                 ),
                 idempotency_key=idempotency_key,
                 correlation_id=request.state.correlation_id,
