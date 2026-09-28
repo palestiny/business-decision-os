@@ -8,8 +8,10 @@ from decision_os.application.api.dependencies import PrincipalProvider, get_prin
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
+from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
+from decision_os.application.commands.make_decision import MakeDecisionCommand
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,13 @@ class CreateDecisionCaseRequest:
     case_type: str
     title: str
     case_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class MakeDecisionRequest:
+    decision_id: UUID
+    option_ids: tuple[UUID, ...]
+    rationale: str
 
 
 def _case_response(case, correlation_id: UUID) -> dict[str, object]:
@@ -33,10 +42,27 @@ def _case_response(case, correlation_id: UUID) -> dict[str, object]:
     }
 
 
+def _decision_response(decision, correlation_id: UUID) -> dict[str, object]:
+    return {
+        "data": {
+            "id": str(decision.id),
+            "case_id": str(decision.case_id),
+            "selected_option_ids": [str(value) for value in decision.selected_option_ids],
+            "rationale": decision.rationale,
+            "status": decision.status.value,
+            "decided_by": str(decision.decided_by),
+            "approval_required": decision.approval_required,
+            "policy_ids": [str(value) for value in decision.policy_ids],
+        },
+        "correlation_id": str(correlation_id),
+    }
+
+
 def build_router(
     *,
     boundary: CreateDecisionCaseReliabilityBoundary,
     triage_boundary: TriageCaseReliabilityBoundary | None = None,
+    make_decision_boundary: MakeDecisionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -79,5 +105,28 @@ def build_router(
                 correlation_id=request.state.correlation_id,
             )
             return _case_response(case, request.state.correlation_id)
+
+    if make_decision_boundary is not None:
+        @router.post("/decision-cases/{case_id}/decision", status_code=200)
+        def make_decision(
+            case_id: UUID,
+            body: MakeDecisionRequest,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            decision = make_decision_boundary.execute(
+                MakeDecisionCommand(
+                    tenant_id=principal.tenant_id,
+                    actor_id=principal.actor_id,
+                    case_id=case_id,
+                    decision_id=body.decision_id,
+                    option_ids=body.option_ids,
+                    rationale=body.rationale,
+                ),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return _decision_response(decision, request.state.correlation_id)
 
     return router
