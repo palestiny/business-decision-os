@@ -14,6 +14,12 @@ from decision_os.application.ports.audit import AuditEvent
 from decision_os.application.ports.authority import Permission
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
+from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
+from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
+from decision_os.application.ports.authority import ApprovalDecision, PolicyEvaluationUnavailable
+from decision_os.application.api.app import create_app
+from decision_os.application.ports.authentication import AuthenticatedPrincipal
+from decision_os.infrastructure.persistence.repositories.decision_option import SQLAlchemyDecisionOptionRepository
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.ports.idempotency import IdempotencyConflict
 from decision_os.application.ports.outbox import OutboxMessage
@@ -25,7 +31,7 @@ from decision_os.infrastructure.persistence.models.reliability import (
     OutboxMessageModel,
 )
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
-from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
+from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel, DecisionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
@@ -64,6 +70,19 @@ class AllowCreateCaseAuthorization:
 class AllowTriageCaseAuthorization:
     def require(self, *, permission, **kwargs):
         assert permission is Permission.TRIAGE_CASE
+
+
+class AllowMakeDecisionAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.MAKE_DECISION
+
+
+class RequireApprovalPolicy:
+    def __init__(self, policy_id):
+        self.policy_id = policy_id
+
+    def evaluate(self, **kwargs):
+        return ApprovalDecision(required=True, policy_ids=(self.policy_id,))
 
 
 class FailingOutbox:
@@ -648,3 +667,116 @@ def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None
     )
     assert idempotency_row is not None
     assert idempotency_row.status == "COMPLETED"
+
+def test_make_decision_http_postgres_replay_persists_authority_and_single_side_effects(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case = make_case(tenant_id)
+    case.status = __import__("decision_os.domain.decision_case", fromlist=["CaseStatus"]).CaseStatus.AWAITING_DECISION
+    case.version = 4
+    seed_tenant(session, tenant_id)
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = MakeDecisionReliabilityBoundary(
+        uow=uow,
+        handler=MakeDecisionHandler(
+            uow,
+            AllowMakeDecisionAuthorization(),
+            RequireApprovalPolicy(uuid4()),
+        ),
+        option_repository=SQLAlchemyDecisionOptionRepository(session),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+
+    app = create_app(create_case_boundary=object(), make_decision_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    decision_id = uuid4()
+    payload = {
+        "decision_id": str(decision_id),
+        "option_ids": [str(option.id)],
+        "rationale": "Protect delivery margin.",
+    }
+    first = client.post(
+        f"/api/v1/decision-cases/{case.id}/decision",
+        headers={"Idempotency-Key": "decision-http-001"},
+        json=payload,
+    )
+    replay = client.post(
+        f"/api/v1/decision-cases/{case.id}/decision",
+        headers={"Idempotency-Key": "decision-http-001"},
+        json=payload,
+    )
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+    assert first.json()["data"]["status"] == "AWAITING_APPROVAL"
+    assert first.json()["data"]["approval_required"] is True
+
+    persisted = SQLAlchemyDecisionRepository(session).get(decision_id, tenant_id)
+    assert persisted is not None
+    assert persisted.approval_required is True
+    assert persisted.selected_option_ids == (option.id,)
+    assert session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id)).status == "AWAITING_APPROVAL"
+    assert session.scalar(select(AuditEventModel).where(AuditEventModel.entity_id == decision_id)) is not None
+    assert len(session.scalars(select(AuditEventModel).where(AuditEventModel.entity_id == decision_id)).all()) == 1
+    assert len(session.scalars(select(OutboxMessageModel).where(OutboxMessageModel.aggregate_id == decision_id)).all()) == 1
+    idem = session.scalar(select(IdempotencyRecordModel).where(
+        IdempotencyRecordModel.tenant_id == tenant_id,
+        IdempotencyRecordModel.operation == "MakeDecision",
+        IdempotencyRecordModel.key == "decision-http-001",
+    ))
+    assert idem is not None
+    assert idem.status == "COMPLETED"
+
+
+def test_make_decision_policy_unavailable_does_not_persist_postgres_state(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case = make_case(tenant_id)
+    case.status = __import__("decision_os.domain.decision_case", fromlist=["CaseStatus"]).CaseStatus.AWAITING_DECISION
+    case.version = 1
+    seed_tenant(session, tenant_id)
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.commit()
+
+    class UnavailablePolicy:
+        def evaluate(self, **kwargs):
+            raise PolicyEvaluationUnavailable("temporarily unavailable")
+
+    boundary = MakeDecisionReliabilityBoundary(
+        uow=SQLAlchemyUnitOfWork(session),
+        handler=MakeDecisionHandler(SQLAlchemyUnitOfWork(session), AllowMakeDecisionAuthorization(), UnavailablePolicy()),
+        option_repository=SQLAlchemyDecisionOptionRepository(session),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    with pytest.raises(PolicyEvaluationUnavailable):
+        boundary.execute(
+            MakeDecisionCommand(
+                tenant_id=tenant_id, case_id=case.id, decision_id=uuid4(),
+                option_ids=(option.id,), rationale="Protect margin.", actor_id=actor_id,
+            ),
+            idempotency_key="decision-policy-unavailable",
+        )
+
+    assert session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id)).status == "AWAITING_DECISION"
+    assert session.scalars(select(DecisionModel).where(DecisionModel.case_id == case.id)).first() is None
+    assert session.scalars(select(AuditEventModel).where(AuditEventModel.entity_id == case.id)).first() is None
