@@ -550,3 +550,102 @@ def test_triage_case_reliability_boundary_rolls_back_all_postgres_writes_on_fail
             IdempotencyRecordModel.key == "triage-atomic-failure",
         )
     ) is None
+
+
+def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None:
+    from fastapi.testclient import TestClient
+
+    from decision_os.application.api.app import create_app
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.id = case_id
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    triage_boundary = TriageCaseReliabilityBoundary(
+        uow=uow,
+        handler=TriageCaseHandler(uow, AllowTriageCaseAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    create_boundary = CreateDecisionCaseReliabilityBoundary(
+        uow=uow,
+        handler=CreateDecisionCaseHandler(uow, AllowCreateCaseAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+
+    app = create_app(
+        create_case_boundary=create_boundary,
+        triage_case_boundary=triage_boundary,
+    )
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        from decision_os.application.ports.authentication import AuthenticatedPrincipal
+
+        request.state.principal = AuthenticatedPrincipal(
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+        )
+        return await call_next(request)
+
+    client = TestClient(app)
+    headers = {"Idempotency-Key": "triage-http-001"}
+
+    first = client.post(
+        f"/api/v1/decision-cases/{case_id}/triage",
+        headers=headers,
+    )
+    replay = client.post(
+        f"/api/v1/decision-cases/{case_id}/triage",
+        headers=headers,
+    )
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json() == replay.json()
+    assert first.json()["data"]["status"] == "TRIAGED"
+    assert first.json()["data"]["version"] == 1
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+
+    persisted = session.scalar(
+        select(DecisionCaseModel).where(DecisionCaseModel.id == case_id)
+    )
+    assert persisted is not None
+    assert persisted.status == "TRIAGED"
+    assert persisted.version == 1
+
+    audit_rows = session.scalars(
+        select(AuditEventModel).where(
+            AuditEventModel.entity_id == case_id,
+            AuditEventModel.action == "TriageCase",
+        )
+    ).all()
+    assert len(audit_rows) == 1
+
+    outbox_rows = session.scalars(
+        select(OutboxMessageModel).where(
+            OutboxMessageModel.aggregate_id == case_id,
+            OutboxMessageModel.topic == "decision-case.triaged",
+        )
+    ).all()
+    assert len(outbox_rows) == 1
+
+    idempotency_row = session.scalar(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.tenant_id == tenant_id,
+            IdempotencyRecordModel.operation == "TriageCase",
+            IdempotencyRecordModel.key == "triage-http-001",
+        )
+    )
+    assert idempotency_row is not None
+    assert idempotency_row.status == "COMPLETED"
