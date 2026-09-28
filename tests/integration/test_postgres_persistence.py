@@ -77,6 +77,11 @@ class AllowMakeDecisionAuthorization:
         assert permission is Permission.MAKE_DECISION
 
 
+class AllowApproveDecisionAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.APPROVE_DECISION
+
+
 class RequireApprovalPolicy:
     def __init__(self, policy_id):
         self.policy_id = policy_id
@@ -824,7 +829,7 @@ def test_approve_decision_http_postgres_replay_persists_approval_and_single_side
     uow = SQLAlchemyUnitOfWork(session)
     boundary = ApproveDecisionReliabilityBoundary(
         uow=uow,
-        handler=ApproveDecisionHandler(uow, AllowMakeDecisionAuthorization()),
+        handler=ApproveDecisionHandler(uow, AllowApproveDecisionAuthorization()),
         idempotency=SQLAlchemyIdempotencyRepository(session),
         audit=SQLAlchemyAuditRepository(session),
         outbox=SQLAlchemyOutboxRepository(session),
