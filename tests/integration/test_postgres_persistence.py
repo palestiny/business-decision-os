@@ -676,6 +676,7 @@ def test_make_decision_http_postgres_replay_persists_authority_and_single_side_e
     case.version = 4
     seed_tenant(session, tenant_id)
     SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.flush()
     option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
     session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
     session.commit()
@@ -760,9 +761,10 @@ def test_make_decision_policy_unavailable_does_not_persist_postgres_state(sessio
         def evaluate(self, **kwargs):
             raise PolicyEvaluationUnavailable("temporarily unavailable")
 
+    uow = SQLAlchemyUnitOfWork(session)
     boundary = MakeDecisionReliabilityBoundary(
-        uow=SQLAlchemyUnitOfWork(session),
-        handler=MakeDecisionHandler(SQLAlchemyUnitOfWork(session), AllowMakeDecisionAuthorization(), UnavailablePolicy()),
+        uow=uow,
+        handler=MakeDecisionHandler(uow, AllowMakeDecisionAuthorization(), UnavailablePolicy()),
         option_repository=SQLAlchemyDecisionOptionRepository(session),
         idempotency=SQLAlchemyIdempotencyRepository(session),
         audit=SQLAlchemyAuditRepository(session),
