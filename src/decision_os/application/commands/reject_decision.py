@@ -39,5 +39,4 @@ class RejectDecisionHandler:
         self._uow.decisions.save(decision, command.tenant_id)
         case.reject()
         self._uow.decision_cases.save(case)
-        self._uow.commit()
         return decision
