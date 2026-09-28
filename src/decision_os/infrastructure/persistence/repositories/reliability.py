@@ -178,4 +178,3 @@ class SQLAlchemyOutboxRepository:
         )
         if result.rowcount != 1:
             raise RuntimeError("outbox message is already published or missing")
-        self._session.commit()
