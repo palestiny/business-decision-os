@@ -20,6 +20,7 @@ class CreateDecisionCaseRequest:
 def build_router(
     *,
     boundary: CreateDecisionCaseReliabilityBoundary,
+    principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
