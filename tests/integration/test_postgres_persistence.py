@@ -783,3 +783,94 @@ def test_make_decision_policy_unavailable_does_not_persist_postgres_state(sessio
     assert session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id)).status == "AWAITING_DECISION"
     assert session.scalars(select(DecisionModel).where(DecisionModel.case_id == case.id)).first() is None
     assert session.scalars(select(AuditEventModel).where(AuditEventModel.entity_id == case.id)).first() is None
+
+
+def test_approve_decision_http_postgres_replay_persists_approval_and_single_side_effects(session: Session) -> None:
+    from fastapi.testclient import TestClient
+    from decision_os.domain.decision_case import CaseStatus
+    from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
+    from decision_os.application.commands.approve_decision import ApproveDecisionHandler
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.status = CaseStatus.AWAITING_APPROVAL
+    case.version = 2
+    case_repository = SQLAlchemyDecisionCaseRepository(session)
+    case_repository.add(case)
+    session.flush()
+
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.flush()
+
+    decision_id = uuid4()
+    policy_id = uuid4()
+    decision = Decision.make(
+        id=decision_id,
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Protect delivery margin.",
+        decided_by=uuid4(),
+        approval_required=True,
+        policy_ids=(policy_id,),
+    )
+    SQLAlchemyDecisionRepository(session).add(decision)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = ApproveDecisionReliabilityBoundary(
+        uow=uow,
+        handler=ApproveDecisionHandler(uow, AllowMakeDecisionAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+
+    app = create_app(create_case_boundary=object(), approve_decision_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    path = f"/api/v1/decision-cases/{case.id}/decision/{decision_id}/approve"
+    headers = {"Idempotency-Key": "approve-http-001"}
+    first = client.post(path, headers=headers)
+    replay = client.post(path, headers=headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+    assert first.json()["data"]["status"] == "APPROVED"
+
+    persisted_decision = SQLAlchemyDecisionRepository(session).get(decision_id, tenant_id)
+    assert persisted_decision is not None
+    assert persisted_decision.status.value == "APPROVED"
+    persisted_case = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert persisted_case is not None
+    assert persisted_case.status == "APPROVED"
+    assert persisted_case.version == 3
+
+    audit_rows = session.scalars(select(AuditEventModel).where(
+        AuditEventModel.entity_id == decision_id,
+        AuditEventModel.action == "ApproveDecision",
+    )).all()
+    assert len(audit_rows) == 1
+    outbox_rows = session.scalars(select(OutboxMessageModel).where(
+        OutboxMessageModel.aggregate_id == decision_id,
+        OutboxMessageModel.topic == "decision.approved",
+    )).all()
+    assert len(outbox_rows) == 1
+    idem = session.scalar(select(IdempotencyRecordModel).where(
+        IdempotencyRecordModel.tenant_id == tenant_id,
+        IdempotencyRecordModel.operation == "ApproveDecision",
+        IdempotencyRecordModel.key == "approve-http-001",
+    ))
+    assert idem is not None
+    assert idem.status == "COMPLETED"
