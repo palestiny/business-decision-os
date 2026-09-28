@@ -7,6 +7,7 @@ from decision_os.application.ports.outbox import (
     OutboxPublicationPort,
     OutboxRecord,
     OutboxRepositoryPort,
+    PublicationTransactionPort,
 )
 
 
@@ -24,9 +25,16 @@ class PublicationResult:
 class OutboxPublicationService:
     """Publishes durable outbox records without coupling publication to DB commit."""
 
-    def __init__(self, *, repository: OutboxRepositoryPort, publisher: OutboxPublicationPort) -> None:
+    def __init__(
+        self,
+        *,
+        repository: OutboxRepositoryPort,
+        publisher: OutboxPublicationPort,
+        transaction: PublicationTransactionPort,
+    ) -> None:
         self._repository = repository
         self._publisher = publisher
+        self._transaction = transaction
 
     def publish_one(self, message: OutboxRecord) -> PublicationResult:
         if message.published_at is not None:
@@ -37,10 +45,16 @@ class OutboxPublicationService:
         except PublicationOutcomeUnknown:
             return PublicationResult(message.id, False, False)
 
-        self._repository.mark_published(
-            message_id=message.id,
-            published_at=datetime.now(timezone.utc),
-        )
+        try:
+            self._repository.mark_published(
+                message_id=message.id,
+                published_at=datetime.now(timezone.utc),
+            )
+            self._transaction.commit()
+        except Exception:
+            self._transaction.rollback()
+            raise
+
         return PublicationResult(message.id, True, True)
 
     def publish_batch(self, *, limit: int = 100) -> tuple[PublicationResult, ...]:
