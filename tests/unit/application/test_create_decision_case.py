@@ -42,7 +42,7 @@ class FakeUow:
         self.committed = False
 
 
-def test_create_case_persists_and_commits() -> None:
+def test_create_case_persists_without_committing() -> None:
     uow = FakeUow()
     authorization = Authorization()
     handler = CreateDecisionCaseHandler(uow, authorization)
@@ -59,7 +59,7 @@ def test_create_case_persists_and_commits() -> None:
     )
 
     assert case.status is CaseStatus.DETECTED
-    assert uow.committed is True
+    assert uow.committed is False
     assert uow.decision_cases.get(case.id, case.tenant_id) is case
 
     assert authorization.calls == [{
