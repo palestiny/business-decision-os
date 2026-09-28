@@ -259,7 +259,93 @@ def test_decision_repository_persists_approval_and_rejection_status(session: Ses
     assert persisted_rejected.status == rejected.status
 
 
-def test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
+
+
+def test_create_case_reliability_boundary_persists_atomic_postgres_transaction(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    uow = SQLAlchemyUnitOfWork(session)
+    idempotency = SQLAlchemyIdempotencyRepository(session)
+    boundary = CreateDecisionCaseReliabilityBoundary(
+        uow=uow,
+        handler=CreateDecisionCaseHandler(uow, AllowCreateCaseAuthorization()),
+        idempotency=idempotency,
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    command = CreateDecisionCaseCommand(
+        tenant_id=tenant_id,
+        case_type="PROJECT_MARGIN_RISK",
+        title="Atomic PostgreSQL case",
+        actor_id=actor_id,
+        case_id=case_id,
+    )
+
+    case = boundary.execute(command, idempotency_key="atomic-success")
+    assert case.id == case_id
+
+    assert session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case_id)) is not None
+    assert session.scalar(
+        select(AuditEventModel).where(AuditEventModel.entity_id == case_id)
+    ) is not None
+    assert session.scalar(
+        select(OutboxMessageModel).where(OutboxMessageModel.aggregate_id == case_id)
+    ) is not None
+    idempotency_row = session.scalar(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.tenant_id == tenant_id,
+            IdempotencyRecordModel.operation == "CreateDecisionCase",
+            IdempotencyRecordModel.key == "atomic-success",
+        )
+    )
+    assert idempotency_row is not None
+    assert idempotency_row.status == "COMPLETED"
+
+
+def test_create_case_reliability_boundary_rolls_back_all_postgres_writes_on_failure(session: Session) -> None:
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    uow = SQLAlchemyUnitOfWork(session)
+    real_idempotency = SQLAlchemyIdempotencyRepository(session)
+    boundary = CreateDecisionCaseReliabilityBoundary(
+        uow=uow,
+        handler=CreateDecisionCaseHandler(uow, AllowCreateCaseAuthorization()),
+        idempotency=FailingIdempotencyCompletion(real_idempotency),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    command = CreateDecisionCaseCommand(
+        tenant_id=tenant_id,
+        case_type="PROJECT_MARGIN_RISK",
+        title="Atomic PostgreSQL rollback",
+        actor_id=actor_id,
+        case_id=case_id,
+    )
+
+    with pytest.raises(RuntimeError, match="forced reliability failure"):
+        boundary.execute(command, idempotency_key="atomic-failure")
+
+    assert session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case_id)) is None
+    assert session.scalar(
+        select(AuditEventModel).where(AuditEventModel.entity_id == case_id)
+    ) is None
+    assert session.scalar(
+        select(OutboxMessageModel).where(OutboxMessageModel.aggregate_id == case_id)
+    ) is None
+    assert session.scalar(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.tenant_id == tenant_id,
+            IdempotencyRecordModel.operation == "CreateDecisionCase",
+            IdempotencyRecordModel.key == "atomic-failure",
+        )
+    ) is None
+\ndef test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
     tenant_id = uuid4()
     actor_id = uuid4()
     seed_tenant(session, tenant_id)
