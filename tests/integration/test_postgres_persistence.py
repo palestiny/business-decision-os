@@ -304,8 +304,6 @@ def test_decision_repository_persists_approval_and_rejection_status(session: Ses
     assert persisted_rejected.status == rejected.status
 
 
-
-
 def test_create_case_reliability_boundary_persists_atomic_postgres_transaction(session: Session) -> None:
     tenant_id = uuid4()
     actor_id = uuid4()
@@ -390,6 +388,7 @@ def test_create_case_reliability_boundary_rolls_back_all_postgres_writes_on_fail
             IdempotencyRecordModel.key == "atomic-failure",
         )
     ) is None
+
 
 def test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
     tenant_id = uuid4()
@@ -612,7 +611,7 @@ def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None
 
     assert first.status_code == 200
     assert replay.status_code == 200
-    assert first.json() == replay.json()
+    assert first.json()["data"] == replay.json()["data"]
     assert first.json()["data"]["status"] == "TRIAGED"
     assert first.json()["data"]["version"] == 1
     assert first.json()["correlation_id"] != replay.json()["correlation_id"]
@@ -649,3 +648,4 @@ def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None
     )
     assert idempotency_row is not None
     assert idempotency_row.status == "COMPLETED"
+}
