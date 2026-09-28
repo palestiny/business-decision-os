@@ -51,8 +51,9 @@ def test_create_case_maps_authenticated_identity_and_returns_stable_response():
 
     assert response.status_code == 201
     body = response.json()
-    assert set(body) == {"data"}
+    assert set(body) == {"data", "correlation_id"}
     assert body["data"]["status"] == "DETECTED"
+    assert body["correlation_id"] == response.headers["X-Correlation-ID"]
     assert body["data"]["case_type"] == "PROJECT_MARGIN_RISK"
     assert boundary.calls[0][1] == "create-001"
 
