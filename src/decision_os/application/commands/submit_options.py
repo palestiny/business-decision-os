@@ -7,6 +7,14 @@ from decision_os.domain.decision import DecisionOption, InvalidDecision
 
 
 @dataclass(frozen=True)
+class SubmittedOptions:
+    case_id: UUID
+    options: tuple[DecisionOption, ...]
+    status: str
+    version: int
+
+
+@dataclass(frozen=True)
 class SubmitOptionsCommand:
     tenant_id: UUID
     case_id: UUID
@@ -19,7 +27,7 @@ class SubmitOptionsHandler:
         self._uow = uow
         self._authorization = authorization
 
-    def handle(self, command: SubmitOptionsCommand):
+    def handle(self, command: SubmitOptionsCommand) -> SubmittedOptions:
         case = self._uow.decision_cases.get(command.case_id, command.tenant_id)
         if case is None:
             raise ValueError("decision case not found")
@@ -44,4 +52,4 @@ class SubmitOptionsHandler:
             self._uow.decision_options.add(option)
         case.submit_options()
         self._uow.decision_cases.save(case)
-        return options
+        return SubmittedOptions(case_id=case.id, options=options, status=case.status.value, version=case.version)
