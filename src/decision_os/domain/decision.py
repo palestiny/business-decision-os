@@ -25,6 +25,12 @@ class DecisionOption:
     case_id: UUID
     title: str
 
+    @classmethod
+    def create(cls, *, id: UUID, case_id: UUID, title: str) -> "DecisionOption":
+        if not title.strip():
+            raise InvalidDecision("option title is required")
+        return cls(id=id, case_id=case_id, title=title.strip())
+
 
 @dataclass
 class Decision:
@@ -39,45 +45,26 @@ class Decision:
 
     @classmethod
     def make(
-        cls,
-        *,
-        id: UUID,
-        case_id: UUID,
-        available_options: tuple[DecisionOption, ...],
-        selected_option_ids: tuple[UUID, ...],
-        rationale: str,
-        decided_by: UUID,
-        approval_required: bool,
-        policy_ids: tuple[UUID, ...] = (),
+        cls, *, id: UUID, case_id: UUID, available_options: tuple[DecisionOption, ...],
+        selected_option_ids: tuple[UUID, ...], rationale: str, decided_by: UUID,
+        approval_required: bool, policy_ids: tuple[UUID, ...] = (),
     ) -> "Decision":
         if not selected_option_ids:
             raise InvalidDecision("at least one option must be selected")
         if not rationale.strip():
             raise InvalidDecision("decision rationale is required")
-
         if len(selected_option_ids) != len(set(selected_option_ids)):
             raise InvalidDecision("selected options must be unique")
-
         if any(option.case_id != case_id for option in available_options):
             raise InvalidDecision("available option does not belong to the case")
-
         available_ids = {option.id for option in available_options}
         if not set(selected_option_ids).issubset(available_ids):
             raise InvalidDecision("selected option does not belong to the case")
-
         return cls(
-            id=id,
-            case_id=case_id,
-            selected_option_ids=selected_option_ids,
+            id=id, case_id=case_id, selected_option_ids=selected_option_ids,
             rationale=rationale,
-            status=(
-                DecisionStatus.AWAITING_APPROVAL
-                if approval_required
-                else DecisionStatus.APPROVED
-            ),
-            decided_by=decided_by,
-            _approval_required=approval_required,
-            policy_ids=policy_ids,
+            status=(DecisionStatus.AWAITING_APPROVAL if approval_required else DecisionStatus.APPROVED),
+            decided_by=decided_by, _approval_required=approval_required, policy_ids=policy_ids,
         )
 
     @property
