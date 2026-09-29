@@ -20,7 +20,7 @@ class Cases:
     def get(self, case_id, tenant_id):
         return self.case if case_id == self.case.id and tenant_id == self.case.tenant_id else None
 
-    def save(self, case):
+    def save(self, case, *, expected_version=None):
         self.case = case
 
 
