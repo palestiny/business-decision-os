@@ -77,12 +77,14 @@ class DecisionCase:
         self._transition(CaseStatus.AWAITING_DECISION)
 
     def record_decision(self, *, approval_required: bool) -> None:
-        target = (
-            CaseStatus.AWAITING_APPROVAL
-            if approval_required
-            else CaseStatus.APPROVED
-        )
-        self._transition(target)
+        # DECISION_MADE is a first-class lifecycle state. Approval is a
+        # separate authority transition, even when policy says approval is
+        # not required and the case may immediately become APPROVED.
+        self._transition(CaseStatus.DECISION_MADE)
+        if approval_required:
+            self._transition(CaseStatus.AWAITING_APPROVAL)
+        else:
+            self._transition(CaseStatus.APPROVED)
 
     def approve(self) -> None:
         self._transition(CaseStatus.APPROVED)
@@ -96,7 +98,8 @@ class DecisionCase:
             CaseStatus.TRIAGED: {CaseStatus.ANALYZING},
             CaseStatus.ANALYZING: {CaseStatus.OPTIONS_READY},
             CaseStatus.OPTIONS_READY: {CaseStatus.AWAITING_DECISION},
-            CaseStatus.AWAITING_DECISION: {
+            CaseStatus.AWAITING_DECISION: {CaseStatus.DECISION_MADE},
+            CaseStatus.DECISION_MADE: {
                 CaseStatus.AWAITING_APPROVAL,
                 CaseStatus.APPROVED,
             },
