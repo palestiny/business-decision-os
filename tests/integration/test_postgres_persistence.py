@@ -82,6 +82,11 @@ class AllowApproveDecisionAuthorization:
         assert permission is Permission.APPROVE_DECISION
 
 
+class AllowRejectDecisionAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.REJECT_DECISION
+
+
 class RequireApprovalPolicy:
     def __init__(self, policy_id):
         self.policy_id = policy_id
@@ -876,6 +881,96 @@ def test_approve_decision_http_postgres_replay_persists_approval_and_single_side
         IdempotencyRecordModel.tenant_id == tenant_id,
         IdempotencyRecordModel.operation == "ApproveDecision",
         IdempotencyRecordModel.key == "approve-http-001",
+    ))
+    assert idem is not None
+    assert idem.status == "COMPLETED"
+
+
+def test_reject_decision_http_postgres_replay_persists_rejection_and_single_side_effects(session: Session) -> None:
+    from fastapi.testclient import TestClient
+    from decision_os.domain.decision_case import CaseStatus
+    from decision_os.application.reject_decision_reliability import RejectDecisionReliabilityBoundary
+    from decision_os.application.commands.reject_decision import RejectDecisionHandler
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.status = CaseStatus.AWAITING_APPROVAL
+    case.version = 2
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.flush()
+
+    option = DecisionOption(id=uuid4(), case_id=case.id, title="Protect margin")
+    session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+    session.flush()
+
+    decision_id = uuid4()
+    policy_id = uuid4()
+    decision = Decision.make(
+        id=decision_id,
+        case_id=case.id,
+        available_options=(option,),
+        selected_option_ids=(option.id,),
+        rationale="Protect delivery margin.",
+        decided_by=uuid4(),
+        approval_required=True,
+        policy_ids=(policy_id,),
+    )
+    SQLAlchemyDecisionRepository(session).add(decision)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = RejectDecisionReliabilityBoundary(
+        uow=uow,
+        handler=RejectDecisionHandler(uow, AllowRejectDecisionAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+
+    app = create_app(create_case_boundary=object(), reject_decision_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    path = f"/api/v1/decision-cases/{case.id}/decision/{decision_id}/reject"
+    headers = {"Idempotency-Key": "reject-http-001"}
+    first = client.post(path, headers=headers)
+    replay = client.post(path, headers=headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+    assert first.json()["data"]["status"] == "REJECTED"
+
+    persisted_decision = SQLAlchemyDecisionRepository(session).get(decision_id, tenant_id)
+    assert persisted_decision is not None
+    assert persisted_decision.status.value == "REJECTED"
+    persisted_case = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert persisted_case is not None
+    assert persisted_case.status == "REJECTED"
+    assert persisted_case.version == 3
+
+    audit_rows = session.scalars(select(AuditEventModel).where(
+        AuditEventModel.entity_id == decision_id,
+        AuditEventModel.action == "RejectDecision",
+    )).all()
+    assert len(audit_rows) == 1
+    outbox_rows = session.scalars(select(OutboxMessageModel).where(
+        OutboxMessageModel.aggregate_id == decision_id,
+        OutboxMessageModel.topic == "decision.rejected",
+    )).all()
+    assert len(outbox_rows) == 1
+    idem = session.scalar(select(IdempotencyRecordModel).where(
+        IdempotencyRecordModel.tenant_id == tenant_id,
+        IdempotencyRecordModel.operation == "RejectDecision",
+        IdempotencyRecordModel.key == "reject-http-001",
     ))
     assert idem is not None
     assert idem.status == "COMPLETED"
