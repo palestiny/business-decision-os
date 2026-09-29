@@ -53,6 +53,8 @@ class MakeDecisionHandler:
             case_id=command.case_id,
         )
 
+        previous_version = case.version
+
         decision = Decision.make(
             id=command.decision_id,
             case_id=case.id,
@@ -65,5 +67,5 @@ class MakeDecisionHandler:
         )
         self._uow.decisions.add(decision)
         case.record_decision(approval_required=decision.approval_required)
-        self._uow.decision_cases.save(case)
+        self._uow.decision_cases.save(case, expected_version=previous_version)
         return decision
