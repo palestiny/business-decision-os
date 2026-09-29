@@ -72,6 +72,11 @@ class AllowTriageCaseAuthorization:
         assert permission is Permission.TRIAGE_CASE
 
 
+class AllowSubmitOptionsAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.SUBMIT_OPTIONS
+
+
 class AllowStartAnalysisAuthorization:
     def require(self, *, permission, **kwargs):
         assert permission is Permission.START_ANALYSIS
@@ -1042,3 +1047,72 @@ def test_reject_decision_http_postgres_replay_persists_rejection_and_single_side
     ))
     assert idem is not None
     assert idem.status == "COMPLETED"
+
+
+def test_submit_options_http_postgres_replay_persists_options_and_single_side_effects(session: Session) -> None:
+    from fastapi.testclient import TestClient
+    from decision_os.application.api.app import create_app
+    from decision_os.application.commands.submit_options import SubmitOptionsHandler
+    from decision_os.application.submit_options_reliability import SubmitOptionsReliabilityBoundary
+    from decision_os.domain.decision_case import CaseStatus
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.status = CaseStatus.ANALYZING
+    case.version = 2
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = SubmitOptionsReliabilityBoundary(
+        uow=uow,
+        handler=SubmitOptionsHandler(uow, AllowSubmitOptionsAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    app = create_app(create_case_boundary=object(), submit_options_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    option_a, option_b = uuid4(), uuid4()
+    payload = [
+        {"id": str(option_a), "title": "Reduce scope"},
+        {"id": str(option_b), "title": "Add delivery capacity"},
+    ]
+    path = f"/api/v1/decision-cases/{case.id}/options"
+    headers = {"Idempotency-Key": "options-http-001"}
+    first = client.post(path, json=payload, headers=headers)
+    replay = client.post(path, json=payload, headers=headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["data"]["status"] == "OPTIONS_READY"
+    assert first.json()["data"]["version"] == 3
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+
+    options = session.scalars(select(DecisionOptionModel).where(DecisionOptionModel.case_id == case.id)).all()
+    assert len(options) == 2
+    persisted = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert persisted is not None
+    assert persisted.status == "OPTIONS_READY"
+    assert persisted.version == 3
+
+    audit_rows = session.scalars(select(AuditEventModel).where(
+        AuditEventModel.entity_id == case.id,
+        AuditEventModel.action == "SubmitOptions",
+    )).all()
+    assert len(audit_rows) == 1
+    outbox_rows = session.scalars(select(OutboxMessageModel).where(
+        OutboxMessageModel.aggregate_id == case.id,
+        OutboxMessageModel.topic == "decision-case.options-submitted",
+    )).all()
+    assert len(outbox_rows) == 1
