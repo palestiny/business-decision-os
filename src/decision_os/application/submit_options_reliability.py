@@ -1,7 +1,6 @@
 """Reliability boundary for submitting decision options."""
 import hashlib
 import json
-from dataclasses import dataclass
 from uuid import UUID
 
 from decision_os.application.commands.submit_options import SubmitOptionsCommand, SubmitOptionsHandler
@@ -10,15 +9,7 @@ from decision_os.application.ports.idempotency import IdempotencyPort
 from decision_os.application.ports.outbox import OutboxPort
 from decision_os.application.ports.unit_of_work import UnitOfWork
 from decision_os.application.reliability_executor import ReliabilityExecutor, ReliabilitySpec
-from decision_os.domain.decision import DecisionOption
-
-
-@dataclass(frozen=True)
-class SubmittedOptions:
-    case_id: UUID
-    options: tuple[DecisionOption, ...]
-    status: str
-    version: int
+from decision_os.application.commands.submit_options import SubmittedOptions
 
 
 class SubmitOptionsReliabilityBoundary:
@@ -54,9 +45,7 @@ class SubmitOptionsReliabilityBoundary:
         )
 
     def _execute(self, command: SubmitOptionsCommand) -> SubmittedOptions:
-        case = self._handler._uow.decision_cases.get(command.case_id, command.tenant_id)
-        options = self._handler.handle(command)
-        return SubmittedOptions(case_id=case.id, options=options, status=case.status.value, version=case.version)
+        return self._handler.handle(command)
 
     @staticmethod
     def _request_hash(command: SubmitOptionsCommand) -> str:
