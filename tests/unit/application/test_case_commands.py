@@ -22,7 +22,7 @@ class Cases:
     def add(self, case):
         self.items[(case.tenant_id, case.id)] = case
 
-    def save(self, case):
+    def save(self, case, *, expected_version=None):
         self.items[(case.tenant_id, case.id)] = case
 
 
