@@ -12,6 +12,9 @@ class SQLAlchemyDecisionOptionRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def add(self, option: DecisionOption) -> None:
+        self._session.add(DecisionOptionModel(id=option.id, case_id=option.case_id, title=option.title))
+
     def list_for_case(self, *, case_id: UUID, tenant_id: UUID) -> tuple[DecisionOption, ...]:
         rows = self._session.execute(
             select(DecisionOptionModel)
