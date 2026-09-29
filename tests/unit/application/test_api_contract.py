@@ -455,3 +455,20 @@ def test_start_analysis_requires_idempotency_key():
     response = TestClient(app).post(f"/api/v1/decision-cases/{uuid4()}/analysis/start")
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_submit_options_requires_idempotency_key():
+    class SubmitOptionsBoundary:
+        def execute(self, *args, **kwargs):
+            raise AssertionError("boundary must not run")
+
+    app = create_app(create_case_boundary=Boundary(), submit_options_boundary=SubmitOptionsBoundary())
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    response = TestClient(app).post(f"/api/v1/decision-cases/{uuid4()}/options", json=[])
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
