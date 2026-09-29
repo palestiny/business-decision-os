@@ -10,6 +10,7 @@ from decision_os.application.ports.outbox import OutboxPort
 from decision_os.application.ports.unit_of_work import UnitOfWork
 from decision_os.application.reliability_executor import ReliabilityExecutor, ReliabilitySpec
 from decision_os.application.commands.submit_options import SubmittedOptions
+from decision_os.domain.decision import DecisionOption
 
 
 class SubmitOptionsReliabilityBoundary:
