@@ -72,6 +72,11 @@ class AllowTriageCaseAuthorization:
         assert permission is Permission.TRIAGE_CASE
 
 
+class AllowStartAnalysisAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.START_ANALYSIS
+
+
 class AllowMakeDecisionAuthorization:
     def require(self, *, permission, **kwargs):
         assert permission is Permission.MAKE_DECISION
