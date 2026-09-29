@@ -8,6 +8,7 @@ from decision_os.application.api.dependencies import PrincipalProvider, get_prin
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.submit_options_reliability import SubmitOptionsReliabilityBoundary
+from decision_os.application.await_decision_reliability import AwaitDecisionReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
@@ -20,6 +21,7 @@ from decision_os.application.commands.approve_decision import ApproveDecisionCom
 from decision_os.application.commands.reject_decision import RejectDecisionCommand
 from decision_os.application.commands.start_analysis import StartAnalysisCommand
 from decision_os.application.commands.submit_options import SubmitOptionsCommand
+from decision_os.application.commands.await_decision import AwaitDecisionCommand
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,7 @@ def build_router(
     reject_decision_boundary: RejectDecisionReliabilityBoundary | None = None,
     start_analysis_boundary: StartAnalysisReliabilityBoundary | None = None,
     submit_options_boundary: SubmitOptionsReliabilityBoundary | None = None,
+    await_decision_boundary: AwaitDecisionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -217,6 +220,21 @@ def build_router(
                 },
                 "correlation_id": str(request.state.correlation_id),
             }
+
+    if await_decision_boundary is not None:
+        @router.post("/decision-cases/{case_id}/decision/await", status_code=200)
+        def await_decision(
+            case_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            case = await_decision_boundary.execute(
+                AwaitDecisionCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return _case_response(case, request.state.correlation_id)
 
     if start_analysis_boundary is not None:
         @router.post("/decision-cases/{case_id}/analysis/start", status_code=200)
