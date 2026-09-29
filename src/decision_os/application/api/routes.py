@@ -11,11 +11,13 @@ from decision_os.application.triage_reliability import TriageCaseReliabilityBoun
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
 from decision_os.application.reject_decision_reliability import RejectDecisionReliabilityBoundary
+from decision_os.application.start_analysis_reliability import StartAnalysisReliabilityBoundary
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand
 from decision_os.application.commands.reject_decision import RejectDecisionCommand
+from decision_os.application.commands.start_analysis import StartAnalysisCommand
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,7 @@ def build_router(
     make_decision_boundary: MakeDecisionReliabilityBoundary | None = None,
     approve_decision_boundary: ApproveDecisionReliabilityBoundary | None = None,
     reject_decision_boundary: RejectDecisionReliabilityBoundary | None = None,
+    start_analysis_boundary: StartAnalysisReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -176,5 +179,24 @@ def build_router(
                 correlation_id=request.state.correlation_id,
             )
             return _decision_response(decision, request.state.correlation_id)
+
+    if start_analysis_boundary is not None:
+        @router.post("/decision-cases/{case_id}/analysis/start", status_code=200)
+        def start_analysis(
+            case_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            case = start_analysis_boundary.execute(
+                StartAnalysisCommand(
+                    tenant_id=principal.tenant_id,
+                    actor_id=principal.actor_id,
+                    case_id=case_id,
+                ),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return _case_response(case, request.state.correlation_id)
 
     return router
