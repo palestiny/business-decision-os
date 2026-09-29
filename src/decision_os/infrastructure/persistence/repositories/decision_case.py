@@ -43,8 +43,8 @@ class SQLAlchemyDecisionCaseRepository:
             updated_at=now,
         ))
 
-    def save(self, case: DecisionCase) -> None:
-        expected_previous_version = case.version - 1
+    def save(self, case: DecisionCase, *, expected_version: int | None = None) -> None:
+        expected_previous_version = case.version - 1 if expected_version is None else expected_version
         result = self._session.execute(
             update(DecisionCaseModel)
             .where(
