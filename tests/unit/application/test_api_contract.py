@@ -401,3 +401,57 @@ def test_reject_decision_requires_idempotency_key():
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_start_analysis_uses_authenticated_identity_and_stable_response():
+    class StartAnalysisBoundary:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            self.calls.append((command, idempotency_key, correlation_id))
+            return type("Case", (), {
+                "id": command.case_id,
+                "tenant_id": command.tenant_id,
+                "case_type": "PROJECT_MARGIN_RISK",
+                "title": "Margin risk",
+                "status": type("Status", (), {"value": "ANALYZING"})(),
+                "version": 2,
+            })()
+
+    boundary = StartAnalysisBoundary()
+    app = create_app(create_case_boundary=Boundary(), start_analysis_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    case_id = uuid4()
+    response = TestClient(app).post(
+        f"/api/v1/decision-cases/{case_id}/analysis/start",
+        headers={"Idempotency-Key": "analysis-001"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["id"] == str(case_id)
+    assert response.json()["data"]["status"] == "ANALYZING"
+    assert response.json()["data"]["version"] == 2
+    assert boundary.calls[0][1] == "analysis-001"
+
+
+def test_start_analysis_requires_idempotency_key():
+    class StartAnalysisBoundary:
+        def execute(self, *args, **kwargs):
+            raise AssertionError("boundary must not run")
+
+    app = create_app(create_case_boundary=Boundary(), start_analysis_boundary=StartAnalysisBoundary())
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
+        return await call_next(request)
+
+    response = TestClient(app).post(f"/api/v1/decision-cases/{uuid4()}/analysis/start")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
