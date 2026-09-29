@@ -12,5 +12,5 @@ class DecisionCaseRepository(Protocol):
     def add(self, case: DecisionCase) -> None:
         ...
 
-    def save(self, case: DecisionCase) -> None:
+    def save(self, case: DecisionCase, *, expected_version: int | None = None) -> None:
         ...
