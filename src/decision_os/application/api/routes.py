@@ -10,10 +10,12 @@ from decision_os.application.reliability import CreateDecisionCaseReliabilityBou
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
+from decision_os.application.reject_decision_reliability import RejectDecisionReliabilityBoundary
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand
+from decision_os.application.commands.reject_decision import RejectDecisionCommand
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,7 @@ def build_router(
     triage_boundary: TriageCaseReliabilityBoundary | None = None,
     make_decision_boundary: MakeDecisionReliabilityBoundary | None = None,
     approve_decision_boundary: ApproveDecisionReliabilityBoundary | None = None,
+    reject_decision_boundary: RejectDecisionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -143,6 +146,27 @@ def build_router(
         ) -> dict[str, object]:
             decision = approve_decision_boundary.execute(
                 ApproveDecisionCommand(
+                    tenant_id=principal.tenant_id,
+                    actor_id=principal.actor_id,
+                    case_id=case_id,
+                    decision_id=decision_id,
+                ),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return _decision_response(decision, request.state.correlation_id)
+
+    if reject_decision_boundary is not None:
+        @router.post("/decision-cases/{case_id}/decision/{decision_id}/reject", status_code=200)
+        def reject_decision(
+            case_id: UUID,
+            decision_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            decision = reject_decision_boundary.execute(
+                RejectDecisionCommand(
                     tenant_id=principal.tenant_id,
                     actor_id=principal.actor_id,
                     case_id=case_id,
