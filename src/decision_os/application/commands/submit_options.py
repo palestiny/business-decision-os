@@ -26,7 +26,7 @@ class SubmitOptionsHandler:
         self._authorization.require(
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
-            permission=Permission.MAKE_DECISION,
+            permission=Permission.SUBMIT_OPTIONS,
             resource_id=command.case_id,
         )
         if not command.options:
