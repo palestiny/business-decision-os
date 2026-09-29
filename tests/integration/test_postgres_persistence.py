@@ -678,6 +678,69 @@ def test_triage_case_http_postgres_contract_and_replay(session: Session) -> None
     assert idempotency_row is not None
     assert idempotency_row.status == "COMPLETED"
 
+
+
+def test_start_analysis_http_postgres_replay_persists_transition_and_single_side_effects(session: Session) -> None:
+    from fastapi.testclient import TestClient
+    from decision_os.application.api.app import create_app
+    from decision_os.application.commands.start_analysis import StartAnalysisHandler
+    from decision_os.application.start_analysis_reliability import StartAnalysisReliabilityBoundary
+    from decision_os.domain.decision_case import CaseStatus
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    case = make_case(tenant_id)
+    case.status = CaseStatus.TRIAGED
+    case.version = 1
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = StartAnalysisReliabilityBoundary(
+        uow=uow,
+        handler=StartAnalysisHandler(uow, AllowStartAnalysisAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    app = create_app(create_case_boundary=object(), start_analysis_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    path = f"/api/v1/decision-cases/{case.id}/analysis/start"
+    headers = {"Idempotency-Key": "analysis-http-001"}
+    first = client.post(path, headers=headers)
+    replay = client.post(path, headers=headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["data"]["status"] == "ANALYZING"
+    assert first.json()["data"]["version"] == 2
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+
+    persisted = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert persisted is not None
+    assert persisted.status == "ANALYZING"
+    assert persisted.version == 2
+
+    audit_rows = session.scalars(select(AuditEventModel).where(
+        AuditEventModel.entity_id == case.id,
+        AuditEventModel.action == "StartAnalysis",
+    )).all()
+    assert len(audit_rows) == 1
+    outbox_rows = session.scalars(select(OutboxMessageModel).where(
+        OutboxMessageModel.aggregate_id == case.id,
+        OutboxMessageModel.topic == "decision-case.analysis-started",
+    )).all()
+    assert len(outbox_rows) == 1
+
 def test_make_decision_http_postgres_replay_persists_authority_and_single_side_effects(session: Session) -> None:
     tenant_id = uuid4()
     actor_id = uuid4()
