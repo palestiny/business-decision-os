@@ -136,5 +136,5 @@ def test_make_decision_uses_policy_authority_snapshot():
     assert decision.approval_required is True
     assert decision.policy_ids == (policy_id,)
     assert case.status is CaseStatus.AWAITING_APPROVAL
-    assert case.version == 3
+    assert case.version == 4
     assert uow.commits == 0
