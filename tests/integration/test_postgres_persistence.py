@@ -72,6 +72,11 @@ class AllowTriageCaseAuthorization:
         assert permission is Permission.TRIAGE_CASE
 
 
+class AllowAwaitDecisionAuthorization:
+    def require(self, *, permission, **kwargs):
+        assert permission is Permission.AWAIT_DECISION
+
+
 class AllowSubmitOptionsAuthorization:
     def require(self, *, permission, **kwargs):
         assert permission is Permission.SUBMIT_OPTIONS
@@ -1114,5 +1119,68 @@ def test_submit_options_http_postgres_replay_persists_options_and_single_side_ef
     outbox_rows = session.scalars(select(OutboxMessageModel).where(
         OutboxMessageModel.aggregate_id == case.id,
         OutboxMessageModel.topic == "decision-case.options-submitted",
+    )).all()
+    assert len(outbox_rows) == 1
+
+
+def test_await_decision_http_postgres_replay_persists_transition_and_single_side_effects(session: Session) -> None:
+    from fastapi.testclient import TestClient
+    from decision_os.application.api.app import create_app
+    from decision_os.application.await_decision_reliability import AwaitDecisionReliabilityBoundary
+    from decision_os.application.commands.await_decision import AwaitDecisionHandler
+    from decision_os.domain.decision_case import CaseStatus
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+    case = make_case(tenant_id)
+    case.status = CaseStatus.OPTIONS_READY
+    case.version = 3
+    SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.flush()
+    option = DecisionOptionModel(id=uuid4(), case_id=case.id, title="Reduce scope")
+    session.add(option)
+    session.commit()
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = AwaitDecisionReliabilityBoundary(
+        uow=uow,
+        handler=AwaitDecisionHandler(uow, AllowAwaitDecisionAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    app = create_app(create_case_boundary=object(), await_decision_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    path = f"/api/v1/decision-cases/{case.id}/decision/await"
+    headers = {"Idempotency-Key": "await-decision-http-001"}
+    first = client.post(path, headers=headers)
+    replay = client.post(path, headers=headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 200
+    assert first.json()["data"] == replay.json()["data"]
+    assert first.json()["data"]["status"] == "AWAITING_DECISION"
+    assert first.json()["data"]["version"] == 4
+    assert first.json()["correlation_id"] != replay.json()["correlation_id"]
+
+    persisted = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert persisted is not None
+    assert persisted.status == "AWAITING_DECISION"
+    assert persisted.version == 4
+    audit_rows = session.scalars(select(AuditEventModel).where(
+        AuditEventModel.entity_id == case.id,
+        AuditEventModel.action == "AwaitDecision",
+    )).all()
+    assert len(audit_rows) == 1
+    outbox_rows = session.scalars(select(OutboxMessageModel).where(
+        OutboxMessageModel.aggregate_id == case.id,
+        OutboxMessageModel.topic == "decision-case.awaiting-decision",
     )).all()
     assert len(outbox_rows) == 1
