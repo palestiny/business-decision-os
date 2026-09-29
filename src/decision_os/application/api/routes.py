@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
+from decision_os.application.submit_options_reliability import SubmitOptionsReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
@@ -18,6 +19,7 @@ from decision_os.application.commands.make_decision import MakeDecisionCommand
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand
 from decision_os.application.commands.reject_decision import RejectDecisionCommand
 from decision_os.application.commands.start_analysis import StartAnalysisCommand
+from decision_os.application.commands.submit_options import SubmitOptionsCommand
 
 
 @dataclass(frozen=True)
@@ -25,6 +27,12 @@ class CreateDecisionCaseRequest:
     case_type: str
     title: str
     case_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class DecisionOptionRequest:
+    id: UUID
+    title: str
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,7 @@ def build_router(
     approve_decision_boundary: ApproveDecisionReliabilityBoundary | None = None,
     reject_decision_boundary: RejectDecisionReliabilityBoundary | None = None,
     start_analysis_boundary: StartAnalysisReliabilityBoundary | None = None,
+    submit_options_boundary: SubmitOptionsReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -179,6 +188,35 @@ def build_router(
                 correlation_id=request.state.correlation_id,
             )
             return _decision_response(decision, request.state.correlation_id)
+
+    if submit_options_boundary is not None:
+        @router.post("/decision-cases/{case_id}/options", status_code=200)
+        def submit_options(
+            case_id: UUID,
+            body: tuple[DecisionOptionRequest, ...],
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            result = submit_options_boundary.execute(
+                SubmitOptionsCommand(
+                    tenant_id=principal.tenant_id,
+                    actor_id=principal.actor_id,
+                    case_id=case_id,
+                    options=tuple((item.id, item.title) for item in body),
+                ),
+                idempotency_key=idempotency_key,
+                correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {
+                    "case_id": str(result.case_id),
+                    "options": [{"id": str(option.id), "case_id": str(option.case_id), "title": option.title} for option in result.options],
+                    "status": result.status,
+                    "version": result.version,
+                },
+                "correlation_id": str(request.state.correlation_id),
+            }
 
     if start_analysis_boundary is not None:
         @router.post("/decision-cases/{case_id}/analysis/start", status_code=200)
