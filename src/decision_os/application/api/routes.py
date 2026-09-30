@@ -412,8 +412,8 @@ def build_router(
 
     if verify_outcome_boundary is not None:
         @router.post("/decision-cases/{case_id}/outcomes/{actual_outcome_id}/verify", status_code=200)
-        def verify_outcome(case_id: UUID, actual_outcome_id: UUID, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key"), verification_id: UUID | None = Header(None, alias="X-Verification-ID")) -> dict[str, object]:
-            verification = verify_outcome_boundary.execute(VerifyOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, verification_id=verification_id or UUID(int=0), actual_outcome_id=actual_outcome_id), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+        def verify_outcome(case_id: UUID, actual_outcome_id: UUID, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key"), verification_id: UUID = Header(..., alias="X-Verification-ID")) -> dict[str, object]:
+            verification = verify_outcome_boundary.execute(VerifyOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, verification_id=verification_id, actual_outcome_id=actual_outcome_id), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
             return {"data": {"id": str(verification.id), "case_id": str(verification.case_id), "actual_outcome_id": str(verification.actual_outcome_id), "status": verification.status.value}, "correlation_id": str(request.state.correlation_id)}
     if mark_unknown_execution_boundary is not None:
         @router.post("/action-executions/{execution_id}/unknown", status_code=200)
