@@ -35,8 +35,6 @@ from decision_os.application.triage_reliability import TriageCaseReliabilityBoun
 from decision_os.application.await_decision_reliability import AwaitDecisionReliabilityBoundary
 from decision_os.application.verify_outcome_reliability import VerifyOutcomeReliabilityBoundary
 from decision_os.application.ports.authority import ApprovalDecision, Permission
-from decision_os.application.ports.reliability import IdempotencyRecord
-from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.domain.action import ActionExecutionStatus
 from decision_os.domain.analysis import AnalysisKind
 from decision_os.domain.decision_case import CaseStatus
@@ -79,7 +77,8 @@ def test_project_margin_risk_full_closed_loop(session: Session):
     session.add(TenantModel(id=tenant_id, name="project-margin-vertical-slice"))
     session.commit()
 
-    case = __import__("decision_os.domain.decision_case", fromlist=["DecisionCase"]).DecisionCase.create(
+    from decision_os.domain.decision_case import DecisionCase
+    case = DecisionCase.create(
         id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK", title="Project Alpha margin risk"
     )
     SQLAlchemyDecisionCaseRepository(session).add(case)
