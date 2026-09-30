@@ -6,7 +6,7 @@ Business Outcome and Verification deterministic foundation.
 
 ## Status
 
-IN PROGRESS — implementation is present; CI verification pending.
+PASS — implementation and CI verification completed.
 
 ## Design
 
@@ -40,8 +40,28 @@ The migration chain has been verified on the branch as:
 
 ## Verification
 
-Pending CI on Python 3.12 and 3.13.
+GitHub Actions CI run #541 completed successfully on the branch head.
+
+CI covered:
+
+- Python 3.12
+- Python 3.13
+- PostgreSQL 17
+- Alembic upgrade/downgrade/upgrade
+- Alembic head check
+- Alembic schema drift check
+- pytest
+
+The outcome PostgreSQL integration test proves:
+
+- expected outcome persistence
+- actual outcome persistence
+- deterministic verification
+- case closure
+- idempotent replay
+- single audit side effect
+- single outbox side effect
 
 ## Next
 
-Run CI, fix only verified failures, then mark CHECKPOINT-028 PASS and proceed to the next design gate.
+Proceed to the First Vertical Slice design gate: `PROJECT_MARGIN_RISK` end-to-end.
