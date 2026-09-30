@@ -3,7 +3,7 @@ from uuid import UUID
 
 from decision_os.application.ports.authority import AuthorizationPort, Permission
 from decision_os.application.ports.unit_of_work import UnitOfWork
-from decision_os.domain.action import ActionExecutionStatus, InvalidAction
+from decision_os.domain.action import ActionExecutionStatus, ActionStatus, InvalidAction
 
 
 @dataclass(frozen=True)
@@ -25,13 +25,14 @@ class CompleteActionExecutionHandler:
         execution = self._uow.action_executions.get(command.execution_id)
         if execution is None:
             raise InvalidAction("execution not found")
-        action = self._uow.actions.get_by_id_for_tenant(execution.action_id, command.tenant_id)
+        action = self._uow.actions.get(execution.action_id, command.tenant_id)
         if action is None:
             raise InvalidAction("action not found")
         self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=action.case_id)
-        if action.status.name != "EXECUTING":
+        if action.status is not ActionStatus.EXECUTING:
             raise InvalidAction("action must be executing")
-        execution.start() if execution.status.name == "REQUESTED" else None
+        execution.start() if execution.status is ActionExecutionStatus.REQUESTED else None
+        expected_action_version = action.version
         if command.outcome is ActionExecutionStatus.SUCCEEDED:
             execution.succeed()
             action.complete()
@@ -39,8 +40,7 @@ class CompleteActionExecutionHandler:
             execution.fail()
             action.fail()
         self._uow.action_executions.save(execution)
-        expected_version = action.version - 1
-        self._uow.actions.save(action, expected_version=expected_version)
+        self._uow.actions.save(action, expected_version=expected_action_version)
         case = self._uow.decision_cases.get(action.case_id, command.tenant_id)
         if case is None:
             raise InvalidAction("decision case not found")
