@@ -26,9 +26,14 @@ from decision_os.application.start_analysis_reliability import StartAnalysisReli
 from decision_os.application.create_expected_outcome_reliability import CreateExpectedOutcomeReliabilityBoundary
 from decision_os.application.record_actual_outcome_reliability import RecordActualOutcomeReliabilityBoundary
 from decision_os.application.verify_outcome_reliability import VerifyOutcomeReliabilityBoundary
+from decision_os.application.create_evidence_reliability import CreateEvidenceReliabilityBoundary
+from decision_os.application.add_analysis_finding_reliability import AddAnalysisFindingReliabilityBoundary
 from decision_os.application.commands.create_expected_outcome import CreateExpectedOutcomeCommand
 from decision_os.application.commands.record_actual_outcome import RecordActualOutcomeCommand
 from decision_os.application.commands.verify_outcome import VerifyOutcomeCommand
+from decision_os.application.commands.create_evidence import CreateEvidenceCommand
+from decision_os.application.commands.add_analysis_finding import AddAnalysisFindingCommand
+from decision_os.domain.analysis import AnalysisKind
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand
@@ -84,6 +89,28 @@ class ActualOutcomeRequest:
     observed_value: float
 
 
+@dataclass(frozen=True)
+class EvidenceRequest:
+    evidence_id: UUID
+    source: str
+    metric: str
+    value: str
+    unit: str
+    period: str
+    captured_at: str
+    confidence: float
+    snapshot: str
+
+
+@dataclass(frozen=True)
+class AnalysisFindingRequest:
+    finding_id: UUID
+    kind: AnalysisKind
+    statement: str
+    confidence: float
+    evidence_ids: tuple[UUID, ...]
+
+
 def _case_response(case, correlation_id: UUID) -> dict[str, object]:
     return {
         "data": {
@@ -132,6 +159,8 @@ def build_router(
     create_expected_outcome_boundary: CreateExpectedOutcomeReliabilityBoundary | None = None,
     record_actual_outcome_boundary: RecordActualOutcomeReliabilityBoundary | None = None,
     verify_outcome_boundary: VerifyOutcomeReliabilityBoundary | None = None,
+    create_evidence_boundary: CreateEvidenceReliabilityBoundary | None = None,
+    add_analysis_finding_boundary: AddAnalysisFindingReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -397,6 +426,28 @@ def build_router(
                 "correlation_id": str(request.state.correlation_id),
             }
 
+
+    if create_evidence_boundary is not None:
+        @router.post("/decision-cases/{case_id}/evidence", status_code=201)
+        def create_evidence(case_id: UUID, body: EvidenceRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
+            from datetime import datetime
+            evidence = create_evidence_boundary.execute(CreateEvidenceCommand(
+                tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id,
+                evidence_id=body.evidence_id, source=body.source, metric=body.metric, value=body.value,
+                unit=body.unit, period=body.period, captured_at=datetime.fromisoformat(body.captured_at),
+                confidence=body.confidence, snapshot=body.snapshot,
+            ), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            return {"data": {"id": str(evidence.id), "case_id": str(evidence.case_id), "source": evidence.source, "metric": evidence.metric, "value": evidence.value, "unit": evidence.unit, "period": evidence.period, "confidence": evidence.confidence}, "correlation_id": str(request.state.correlation_id)}
+
+    if add_analysis_finding_boundary is not None:
+        @router.post("/decision-cases/{case_id}/analysis/findings", status_code=201)
+        def add_analysis_finding(case_id: UUID, body: AnalysisFindingRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
+            finding = add_analysis_finding_boundary.execute(AddAnalysisFindingCommand(
+                tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id,
+                finding_id=body.finding_id, kind=body.kind, statement=body.statement,
+                confidence=body.confidence, evidence_ids=body.evidence_ids,
+            ), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            return {"data": {"id": str(finding.id), "case_id": str(finding.case_id), "kind": finding.kind.value, "statement": finding.statement, "confidence": finding.confidence, "evidence_ids": [str(value) for value in finding.evidence_ids]}, "correlation_id": str(request.state.correlation_id)}
 
     if create_expected_outcome_boundary is not None:
         @router.post("/decision-cases/{case_id}/outcomes/expected", status_code=201)
