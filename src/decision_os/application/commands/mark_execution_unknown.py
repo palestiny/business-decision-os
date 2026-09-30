@@ -28,6 +28,7 @@ class MarkExecutionUnknownHandler:
         self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=action.case_id)
         if action.status is not ActionStatus.EXECUTING:
             raise InvalidAction("action must be executing")
+        expected_execution_status = execution.status
         execution.mark_unknown()
-        self._uow.action_executions.save(execution)
+        self._uow.action_executions.save(execution, expected_status=expected_execution_status)
         return execution
