@@ -41,6 +41,9 @@ class SubmitOptionsHandler:
             raise InvalidDecision("at least one decision option is required")
         if len({option_id for option_id, _ in command.options}) != len(command.options):
             raise InvalidDecision("decision option ids must be unique")
+        findings = self._uow.analysis_findings.list_for_case(case_id=case.id, tenant_id=case.tenant_id)
+        if not findings:
+            raise InvalidDecision("at least one analysis finding is required before options")
         existing = self._uow.decision_options.list_for_case(case_id=case.id, tenant_id=case.tenant_id)
         if existing:
             raise InvalidDecision("decision options already exist for case")
