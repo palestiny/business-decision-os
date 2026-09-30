@@ -5,6 +5,7 @@ from decision_os.infrastructure.persistence.repositories.action import SQLAlchem
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
 from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_option import SQLAlchemyDecisionOptionRepository
+from decision_os.infrastructure.persistence.repositories.evidence import SQLAlchemyAnalysisFindingRepository, SQLAlchemyEvidenceRepository
 from decision_os.infrastructure.persistence.repositories.outcome import SQLAlchemyActualOutcomeRepository, SQLAlchemyExpectedOutcomeRepository, SQLAlchemyVerificationRepository
 
 
@@ -19,6 +20,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.expected_outcomes = SQLAlchemyExpectedOutcomeRepository(session)
         self.actual_outcomes = SQLAlchemyActualOutcomeRepository(session)
         self.verifications = SQLAlchemyVerificationRepository(session)
+        self.evidence = SQLAlchemyEvidenceRepository(session)
+        self.analysis_findings = SQLAlchemyAnalysisFindingRepository(session)
 
     def commit(self) -> None: self._session.commit()
     def rollback(self) -> None: self._session.rollback()
