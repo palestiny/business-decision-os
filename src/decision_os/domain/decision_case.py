@@ -27,12 +27,8 @@ class CaseStatus(StrEnum):
     EXPIRED = "EXPIRED"
 
 
-class DomainError(ValueError):
-    """Base domain exception."""
-
-
-class InvalidCaseTransition(DomainError):
-    """Raised when a lifecycle transition is not allowed."""
+class DomainError(ValueError): ...
+class InvalidCaseTransition(DomainError): ...
 
 
 @dataclass
@@ -45,52 +41,24 @@ class DecisionCase:
     version: int = 0
 
     @classmethod
-    def create(
-        cls,
-        *,
-        id: UUID,
-        tenant_id: UUID,
-        case_type: str,
-        title: str,
-    ) -> "DecisionCase":
-        if not case_type.strip():
-            raise DomainError("case_type is required")
-        if not title.strip():
-            raise DomainError("title is required")
-        return cls(
-            id=id,
-            tenant_id=tenant_id,
-            case_type=case_type,
-            title=title,
-        )
+    def create(cls, *, id: UUID, tenant_id: UUID, case_type: str, title: str) -> "DecisionCase":
+        if not case_type.strip(): raise DomainError("case_type is required")
+        if not title.strip(): raise DomainError("title is required")
+        return cls(id=id, tenant_id=tenant_id, case_type=case_type, title=title)
 
-    def triage(self) -> None:
-        self._transition(CaseStatus.TRIAGED)
-
-    def start_analysis(self) -> None:
-        self._transition(CaseStatus.ANALYZING)
-
-    def submit_options(self) -> None:
-        self._transition(CaseStatus.OPTIONS_READY)
-
-    def await_decision(self) -> None:
-        self._transition(CaseStatus.AWAITING_DECISION)
+    def triage(self) -> None: self._transition(CaseStatus.TRIAGED)
+    def start_analysis(self) -> None: self._transition(CaseStatus.ANALYZING)
+    def submit_options(self) -> None: self._transition(CaseStatus.OPTIONS_READY)
+    def await_decision(self) -> None: self._transition(CaseStatus.AWAITING_DECISION)
 
     def record_decision(self, *, approval_required: bool) -> None:
-        # DECISION_MADE is a first-class lifecycle state. Approval is a
-        # separate authority transition, even when policy says approval is
-        # not required and the case may immediately become APPROVED.
         self._transition(CaseStatus.DECISION_MADE)
-        if approval_required:
-            self._transition(CaseStatus.AWAITING_APPROVAL)
-        else:
-            self._transition(CaseStatus.APPROVED)
+        if approval_required: self._transition(CaseStatus.AWAITING_APPROVAL)
+        else: self._transition(CaseStatus.APPROVED)
 
-    def approve(self) -> None:
-        self._transition(CaseStatus.APPROVED)
-
-    def reject(self) -> None:
-        self._transition(CaseStatus.REJECTED)
+    def approve(self) -> None: self._transition(CaseStatus.APPROVED)
+    def reject(self) -> None: self._transition(CaseStatus.REJECTED)
+    def execute(self) -> None: self._transition(CaseStatus.EXECUTING)
 
     def _transition(self, target: CaseStatus) -> None:
         allowed = {
@@ -99,18 +67,11 @@ class DecisionCase:
             CaseStatus.ANALYZING: {CaseStatus.OPTIONS_READY},
             CaseStatus.OPTIONS_READY: {CaseStatus.AWAITING_DECISION},
             CaseStatus.AWAITING_DECISION: {CaseStatus.DECISION_MADE},
-            CaseStatus.DECISION_MADE: {
-                CaseStatus.AWAITING_APPROVAL,
-                CaseStatus.APPROVED,
-            },
-            CaseStatus.AWAITING_APPROVAL: {
-                CaseStatus.APPROVED,
-                CaseStatus.REJECTED,
-            },
+            CaseStatus.DECISION_MADE: {CaseStatus.AWAITING_APPROVAL, CaseStatus.APPROVED},
+            CaseStatus.AWAITING_APPROVAL: {CaseStatus.APPROVED, CaseStatus.REJECTED},
+            CaseStatus.APPROVED: {CaseStatus.EXECUTING},
         }
         if target not in allowed.get(self.status, set()):
-            raise InvalidCaseTransition(
-                f"{self.status} -> {target} is not allowed"
-            )
+            raise InvalidCaseTransition(f"{self.status} -> {target} is not allowed")
         self.status = target
         self.version += 1
