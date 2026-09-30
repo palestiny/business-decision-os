@@ -14,6 +14,7 @@ from decision_os.application.api.errors import (
     policy_unavailable_handler,
     request_in_progress_handler,
     unexpected_error_handler,
+    invalid_action_handler,
 )
 from decision_os.application.api.routes import build_router
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
@@ -22,9 +23,10 @@ from decision_os.application.ports.authority import AuthorizationDenied, PolicyE
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.domain.decision_case import DomainError
 from decision_os.domain.decision import DecisionError
+from decision_os.domain.action import InvalidAction
 
 
-def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, create_action_boundary=None, start_action_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -69,6 +71,7 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
     app.add_exception_handler(PolicyEvaluationUnavailable, policy_unavailable_handler)
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(DecisionError, domain_error_handler)
+    app.add_exception_handler(InvalidAction, invalid_action_handler)
     app.add_exception_handler(Exception, unexpected_error_handler)
 
     app.include_router(
@@ -81,6 +84,8 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
             start_analysis_boundary=start_analysis_boundary,
             submit_options_boundary=submit_options_boundary,
             await_decision_boundary=await_decision_boundary,
+            create_action_boundary=create_action_boundary,
+            start_action_boundary=start_action_boundary,
             principal_provider=principal_provider,
         )
     )
