@@ -43,5 +43,5 @@ class VerifyOutcomeHandler:
             case.close()
         self._uow.actual_outcomes.save(actual, command.tenant_id)
         self._uow.verifications.add(verification, command.tenant_id)
-        self._uow.decision_cases.save(case, command.tenant_id, expected_version=previous_version)
+        self._uow.decision_cases.save(case, expected_version=previous_version)
         return verification
