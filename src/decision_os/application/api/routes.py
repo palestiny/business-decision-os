@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, Header, Request
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
+from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
+from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
 from decision_os.application.submit_options_reliability import SubmitOptionsReliabilityBoundary
 from decision_os.application.await_decision_reliability import AwaitDecisionReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
@@ -22,6 +24,8 @@ from decision_os.application.commands.reject_decision import RejectDecisionComma
 from decision_os.application.commands.start_analysis import StartAnalysisCommand
 from decision_os.application.commands.submit_options import SubmitOptionsCommand
 from decision_os.application.commands.await_decision import AwaitDecisionCommand
+from decision_os.application.commands.create_action import CreateActionCommand
+from decision_os.application.commands.start_action import StartActionCommand
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,14 @@ class CreateDecisionCaseRequest:
 class DecisionOptionRequest:
     id: UUID
     title: str
+
+
+@dataclass(frozen=True)
+class CreateActionRequest:
+    decision_id: UUID
+    action_type: str
+    parameters: str = ""
+    action_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +96,8 @@ def build_router(
     start_analysis_boundary: StartAnalysisReliabilityBoundary | None = None,
     submit_options_boundary: SubmitOptionsReliabilityBoundary | None = None,
     await_decision_boundary: AwaitDecisionReliabilityBoundary | None = None,
+    create_action_boundary: CreateActionReliabilityBoundary | None = None,
+    start_action_boundary: StartActionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -254,5 +268,57 @@ def build_router(
                 correlation_id=request.state.correlation_id,
             )
             return _case_response(case, request.state.correlation_id)
+
+
+    if create_action_boundary is not None:
+        @router.post("/decision-cases/{case_id}/actions", status_code=201)
+        def create_action(
+            case_id: UUID,
+            body: CreateActionRequest,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            action = create_action_boundary.execute(
+                CreateActionCommand(
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    case_id=case_id, decision_id=body.decision_id,
+                    action_type=body.action_type, parameters=body.parameters,
+                    action_id=body.action_id,
+                ),
+                idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {
+                    "id": str(action.id), "tenant_id": str(action.tenant_id),
+                    "case_id": str(action.case_id), "decision_id": str(action.decision_id),
+                    "action_type": action.action_type, "parameters": action.parameters,
+                    "status": action.status.value, "version": action.version,
+                },
+                "correlation_id": str(request.state.correlation_id),
+            }
+
+    if start_action_boundary is not None:
+        @router.post("/actions/{action_id}/start", status_code=200)
+        def start_action(
+            action_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            execution = start_action_boundary.execute(
+                StartActionCommand(
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    action_id=action_id,
+                ),
+                idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {
+                    "id": str(execution.id), "action_id": str(execution.action_id),
+                    "attempt": execution.attempt, "status": execution.status.value,
+                },
+                "correlation_id": str(request.state.correlation_id),
+            }
 
     return router
