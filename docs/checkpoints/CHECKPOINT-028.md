@@ -34,6 +34,10 @@ Added:
 - HTTP endpoints with idempotency, audit, outbox, and correlation boundaries.
 - PostgreSQL integration coverage for replay and single side effects.
 
+The migration chain has been verified on the branch as:
+
+`0001_initial_platform → 0002_decision_core → 0003_reliability → 0004_action_execution → 0005_business_outcomes`.
+
 ## Verification
 
 Pending CI on Python 3.12 and 3.13.
