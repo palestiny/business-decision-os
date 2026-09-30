@@ -33,6 +33,7 @@ from decision_os.infrastructure.persistence.models.reliability import (
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel, DecisionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
+from decision_os.infrastructure.persistence.models.evidence import AnalysisFindingModel, EvidenceModel
 from decision_os.infrastructure.persistence.repositories.decision import SQLAlchemyDecisionRepository
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
 from decision_os.infrastructure.persistence.uow import SQLAlchemyUnitOfWork
@@ -511,6 +512,17 @@ def test_triage_case_reliability_boundary_persists_atomic_postgres_transaction(s
     case = make_case(tenant_id)
     case.id = case_id
     SQLAlchemyDecisionCaseRepository(session).add(case)
+    evidence_id = uuid4()
+    session.add(EvidenceModel(
+        id=evidence_id, tenant_id=tenant_id, case_id=case.id, source="PSA",
+        metric="gross_margin_percent", value="12.5", unit="percent", period="2026-09",
+        captured_at=datetime.now(timezone.utc), confidence=0.95, snapshot="project-123:margin",
+    ))
+    session.add(AnalysisFindingModel(
+        id=uuid4(), tenant_id=tenant_id, case_id=case.id, kind="INFERENCE",
+        statement="Margin erosion is present.", confidence=0.8,
+        evidence_ids=json.dumps([str(evidence_id)]),
+    ))
     session.commit()
 
     uow = SQLAlchemyUnitOfWork(session)
