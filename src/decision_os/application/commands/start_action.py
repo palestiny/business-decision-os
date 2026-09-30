@@ -41,6 +41,7 @@ class StartActionHandler:
         expected_version = action.version
         attempt = 1 if latest is None else latest.attempt + 1
         execution = ActionExecution.request(id=command.execution_id or uuid4(), action_id=action.id, attempt=attempt)
+        execution.start()
         action.start_execution()
         self._uow.actions.save(action, expected_version=expected_version)
         expected_case_version = case.version
