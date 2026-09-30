@@ -108,6 +108,7 @@ def test_running_execution_can_complete_successfully_and_moves_case_to_outcome_p
     action = Action.create(id=uuid4(), tenant_id=tenant_id, case_id=case.id, decision_id=decision.id, action_type="UPDATE_BUDGET", parameters="{}")
     action.ready()
     action.start_execution()
+    case.execute()
     execution = __import__("decision_os.domain.action", fromlist=["ActionExecution"]).ActionExecution.request(id=uuid4(), action_id=action.id, attempt=1)
     execution.start()
     auth = FakeAuthorization()
@@ -137,7 +138,7 @@ def test_unknown_execution_requires_explicit_reconciliation():
     auth = FakeAuthorization()
     saved = []
     uow = SimpleNamespace(
-        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value: saved.append(value)),
+        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value, expected_status=None: saved.append(value)),
         actions=SimpleNamespace(get=lambda *_: action, save=lambda value, expected_version: saved.append((value, expected_version))),
         decision_cases=SimpleNamespace(get=lambda *_: case, save=lambda value, expected_version=None: saved.append((value, expected_version))),
     )
