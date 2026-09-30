@@ -33,13 +33,14 @@ class ReconcileUnknownExecutionHandler:
             raise InvalidAction("only unknown executions can be reconciled")
         if action.status is not ActionStatus.EXECUTING:
             raise InvalidAction("action must remain executing during reconciliation")
+        expected_execution_status = execution.status
         expected_action_version = action.version
         execution.reconcile(observed_status=command.observed_outcome)
         if command.observed_outcome is ActionExecutionStatus.SUCCEEDED:
             action.complete()
         else:
             action.fail()
-        self._uow.action_executions.save(execution)
+        self._uow.action_executions.save(execution, expected_status=expected_execution_status)
         self._uow.actions.save(action, expected_version=expected_action_version)
         case = self._uow.decision_cases.get(action.case_id, command.tenant_id)
         if case is None:
