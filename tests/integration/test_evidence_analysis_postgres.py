@@ -15,8 +15,7 @@ from decision_os.application.ports.authority import Permission
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.domain.analysis import AnalysisKind
 from decision_os.domain.decision_case import CaseStatus, DecisionCase
-from decision_os.infrastructure.persistence.models.analysis import AnalysisFindingModel
-from decision_os.infrastructure.persistence.models.evidence import EvidenceModel
+from decision_os.infrastructure.persistence.models.evidence import AnalysisFindingModel, EvidenceModel
 from decision_os.infrastructure.persistence.models.reliability import AuditEventModel, IdempotencyRecordModel, OutboxMessageModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
