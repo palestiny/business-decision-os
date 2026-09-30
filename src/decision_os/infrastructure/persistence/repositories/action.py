@@ -42,10 +42,10 @@ class SQLAlchemyActionExecutionRepository:
         row = self._session.execute(select(ActionExecutionModel).where(ActionExecutionModel.action_id == action_id).order_by(ActionExecutionModel.attempt.desc()).limit(1)).scalar_one_or_none()
         return None if row is None else self._to_domain(row)
 
-    def save(self, execution: ActionExecution) -> None:
-        result = self._session.execute(update(ActionExecutionModel).where(ActionExecutionModel.id == execution.id).values(status=execution.status.value))
+    def save(self, execution: ActionExecution, *, expected_status: ActionExecutionStatus) -> None:
+        result = self._session.execute(update(ActionExecutionModel).where(ActionExecutionModel.id == execution.id, ActionExecutionModel.status == expected_status.value).values(status=execution.status.value))
         if result.rowcount != 1:
-            raise InvalidAction("execution not found")
+            raise InvalidAction("execution version conflict")
 
     def add(self, execution: ActionExecution) -> None:
         self._session.add(ActionExecutionModel(id=execution.id, action_id=execution.action_id, attempt=execution.attempt, status=execution.status.value))
