@@ -32,7 +32,10 @@ class VerifyOutcomeHandler:
             raise InvalidOutcome("expected outcome not found")
         self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.VERIFY_OUTCOME, resource_id=case.id)
         previous_version = case.version
-        case.start_verification()
+        if case.status.value == "OUTCOME_PENDING":
+            case.start_verification()
+        elif case.status.value != "VERIFYING":
+            raise InvalidOutcome("case is not ready for verification")
         verification = Verification(id=command.verification_id, case_id=case.id, actual_outcome_id=actual.id)
         status = verification.verify(expected=expected, actual=actual)
         if status.value == "PASSED":
