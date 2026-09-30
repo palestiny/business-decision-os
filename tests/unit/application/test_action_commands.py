@@ -113,7 +113,7 @@ def test_running_execution_can_complete_successfully_and_moves_case_to_outcome_p
     auth = FakeAuthorization()
     saved = []
     uow = SimpleNamespace(
-        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value: saved.append(value)),
+        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value, expected_status=None: saved.append(value)),
         actions=SimpleNamespace(get=lambda *_: action, save=lambda value, expected_version: saved.append((value, expected_version))),
         decision_cases=SimpleNamespace(get=lambda *_: case, save=lambda value, expected_version=None: saved.append((value, expected_version))),
     )
