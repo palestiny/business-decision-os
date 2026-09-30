@@ -14,6 +14,8 @@ class Permission(StrEnum):
     MAKE_DECISION = "MAKE_DECISION"
     APPROVE_DECISION = "APPROVE_DECISION"
     REJECT_DECISION = "REJECT_DECISION"
+    CREATE_ACTION = "CREATE_ACTION"
+    START_ACTION = "START_ACTION"
 
 
 class AuthorizationDenied(PermissionError):
@@ -31,23 +33,10 @@ class ApprovalDecision:
 
 
 class AuthorizationPort(Protocol):
-    def require(
-        self,
-        *,
-        actor_id: UUID,
-        tenant_id: UUID,
-        permission: Permission,
-        resource_id: UUID,
-    ) -> None:
+    def require(self, *, actor_id: UUID, tenant_id: UUID, permission: Permission, resource_id: UUID) -> None:
         ...
 
 
 class PolicyEvaluatorPort(Protocol):
-    def evaluate(
-        self,
-        *,
-        actor_id: UUID,
-        tenant_id: UUID,
-        case_id: UUID,
-    ) -> ApprovalDecision:
+    def evaluate(self, *, actor_id: UUID, tenant_id: UUID, case_id: UUID) -> ApprovalDecision:
         ...
