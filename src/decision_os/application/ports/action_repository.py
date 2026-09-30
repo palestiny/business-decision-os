@@ -1,3 +1,4 @@
+"""Action persistence ports."""
 from typing import Protocol
 from uuid import UUID
 
@@ -7,7 +8,7 @@ from decision_os.domain.action import Action, ActionExecution
 class ActionRepository(Protocol):
     def get(self, action_id: UUID, tenant_id: UUID) -> Action | None: ...
     def add(self, action: Action) -> None: ...
-    def save(self, action: Action) -> None: ...
+    def save(self, action: Action, *, expected_version: int) -> None: ...
 
 
 class ActionExecutionRepository(Protocol):
