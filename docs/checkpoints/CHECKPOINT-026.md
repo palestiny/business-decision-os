@@ -2,7 +2,7 @@
 
 ## Scope
 
-Establish the Action / ActionExecution boundary before external execution work.
+Establish and verify the Action / ActionExecution boundary before external execution work.
 
 ## Decisions
 
@@ -12,34 +12,46 @@ Establish the Action / ActionExecution boundary before external execution work.
 - UNKNOWN is a first-class execution result and is not treated as FAILED.
 - Action completion is not Outcome verification.
 - No provider integration is introduced in this stage.
+- CreateAction requires an APPROVED case and APPROVED decision, then creates the Action in READY for the initial internal slice.
+- StartAction creates the execution attempt and atomically moves the Action and Case into EXECUTING.
 
 ## Added
 
 - `docs/decisions/ADR-012-ACTION-EXECUTION-BOUNDARY.md`
 - `docs/gates/ACTION_DESIGN_GATE.md`
-- `domain/action.py`
+- Action domain primitives.
 - Action and ActionExecution repository ports.
+- PostgreSQL persistence models and migration `0004_action_execution`.
+- CreateAction / StartAction application handlers and reliability boundaries.
+- HTTP endpoints for Action creation and execution start.
+- Action command unit tests.
 
-## Current lifecycle
+## Verification
 
-Case:
-`APPROVED → EXECUTING → OUTCOME_PENDING`
+**PASS**
 
-Action:
-`PLANNED → READY → EXECUTING → COMPLETED | FAILED | BLOCKED`
+GitHub Actions CI run #414 passed on both Python 3.12 and 3.13.
 
-Execution:
-`REQUESTED → RUNNING → SUCCEEDED | FAILED | UNKNOWN`
+Verified by CI:
+- Alembic upgrade to head.
+- Alembic downgrade to base.
+- Alembic upgrade from base.
+- `alembic current --check-heads`.
+- `alembic check`.
+- Full pytest suite.
 
-## Verification status
+The tested implementation includes the action persistence migration and the action command invariants.
 
-NOT YET PROVEN.
+## Safety properties verified
 
-The domain primitives and ports are added, but persistence, commands, reliability boundaries, API contracts, migrations, and PostgreSQL replay tests are still required.
+- Action creation does not execute the action.
+- Action creation requires both case and decision approval.
+- StartAction creates attempt 1.
+- UNKNOWN execution blocks blind retry.
+- Action and Case optimistic concurrency versions are captured explicitly.
+- Reliability boundary provides idempotency, audit, outbox, and transaction ownership.
+- No external provider is invoked.
 
 ## Next
 
-Implement Action persistence and the first internal vertical slice:
-`CreateAction → StartAction → ActionExecution`.
-
-Do not connect an external provider until this slice is green.
+Proceed to execution outcome semantics and reconciliation design before adding any real provider integration.
