@@ -11,6 +11,8 @@ from decision_os.application.create_action_reliability import CreateActionReliab
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
 from decision_os.application.complete_action_execution_reliability import CompleteActionExecutionReliabilityBoundary
 from decision_os.application.reconcile_unknown_execution_reliability import ReconcileUnknownExecutionReliabilityBoundary
+from decision_os.application.mark_execution_unknown_reliability import MarkExecutionUnknownReliabilityBoundary
+from decision_os.application.commands.mark_execution_unknown import MarkExecutionUnknownCommand
 from decision_os.application.commands.complete_action_execution import CompleteActionExecutionCommand
 from decision_os.application.commands.reconcile_unknown_execution import ReconcileUnknownExecutionCommand
 from decision_os.domain.action import ActionExecutionStatus
@@ -105,6 +107,7 @@ def build_router(
     start_action_boundary: StartActionReliabilityBoundary | None = None,
     complete_execution_boundary: CompleteActionExecutionReliabilityBoundary | None = None,
     reconcile_execution_boundary: ReconcileUnknownExecutionReliabilityBoundary | None = None,
+    mark_unknown_execution_boundary: MarkExecutionUnknownReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -362,6 +365,27 @@ def build_router(
                 ReconcileUnknownExecutionCommand(
                     tenant_id=principal.tenant_id, actor_id=principal.actor_id,
                     execution_id=execution_id, observed_outcome=observed_outcome,
+                ),
+                idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {"id": str(execution.id), "action_id": str(execution.action_id), "attempt": execution.attempt, "status": execution.status.value},
+                "correlation_id": str(request.state.correlation_id),
+            }
+
+
+    if mark_unknown_execution_boundary is not None:
+        @router.post("/action-executions/{execution_id}/unknown", status_code=200)
+        def mark_execution_unknown(
+            execution_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            execution = mark_unknown_execution_boundary.execute(
+                MarkExecutionUnknownCommand(
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    execution_id=execution_id,
                 ),
                 idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
             )
