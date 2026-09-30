@@ -30,8 +30,18 @@ class VerifyOutcomeHandler:
         expected = self._uow.expected_outcomes.get(actual.expected_outcome_id, command.tenant_id)
         if expected is None:
             raise InvalidOutcome("expected outcome not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.VERIFY_OUTCOME, resource_id=case.id)
+        previous_version = case.version
+        case.start_verification()
         verification = Verification(id=command.verification_id, case_id=case.id, actual_outcome_id=actual.id)
-        verification.verify(expected=expected, actual=actual)
+        status = verification.verify(expected=expected, actual=actual)
+        if status.value == "PASSED":
+            actual.mark_verified()
+            case.close()
+        elif status.value == "FAILED":
+            actual.mark_failed()
+            case.close()
+        self._uow.actual_outcomes.save(actual, command.tenant_id)
         self._uow.verifications.add(verification, command.tenant_id)
+        self._uow.decision_cases.save(case, command.tenant_id, expected_version=previous_version)
         return verification
