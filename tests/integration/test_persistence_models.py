@@ -12,6 +12,7 @@ def test_metadata_contains_required_persistence_tables() -> None:
     expected = {
         "tenants", "decision_cases", "decision_options", "decisions",
         "decision_selected_options", "idempotency_records", "audit_events", "outbox_messages",
+        "evidence", "analysis_findings", "expected_outcomes", "actual_outcomes", "verifications",
     }
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
