@@ -132,6 +132,7 @@ def test_unknown_execution_requires_explicit_reconciliation():
     action = Action.create(id=uuid4(), tenant_id=tenant_id, case_id=case.id, decision_id=decision.id, action_type="UPDATE_BUDGET", parameters="{}")
     action.ready()
     action.start_execution()
+    case.execute()
     execution = __import__("decision_os.domain.action", fromlist=["ActionExecution"]).ActionExecution.request(id=uuid4(), action_id=action.id, attempt=1)
     execution.start()
     execution.mark_unknown()
@@ -161,7 +162,7 @@ def test_mark_execution_unknown_keeps_action_executing():
     auth = FakeAuthorization()
     saved = []
     uow = SimpleNamespace(
-        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value: saved.append(value)),
+        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value, expected_status=None: saved.append(value)),
         actions=SimpleNamespace(get=lambda *_: action),
     )
     from decision_os.application.commands.mark_execution_unknown import MarkExecutionUnknownCommand, MarkExecutionUnknownHandler
