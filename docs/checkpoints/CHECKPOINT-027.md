@@ -36,14 +36,14 @@ Added:
 
 ## Verification
 
-CI run #472 is currently in progress on Python 3.12 and 3.13.
+CI run #474 failed with 2 unit-test fixture defects; both were traced to stale test setup rather than a production semantic defect. A follow-up CI run is required.
 
 Previous CI run #468 exposed four test issues:
 1. StartAction test expected RUNNING while implementation still persisted REQUESTED.
 2. Outcome test used APPROVED Case instead of EXECUTING Case.
 3. Two unit fakes had stale execution-save signatures.
 
-Those are being corrected at the source/test boundary. No architectural workaround was used.
+Both are corrected at the test boundary. No architectural workaround was used.
 
 ## Next
 
