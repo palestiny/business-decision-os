@@ -26,7 +26,7 @@ from decision_os.domain.decision import DecisionError
 from decision_os.domain.action import InvalidAction
 
 
-def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, create_action_boundary=None, start_action_boundary=None, complete_execution_boundary=None, reconcile_execution_boundary=None, mark_unknown_execution_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, create_action_boundary=None, start_action_boundary=None, complete_execution_boundary=None, reconcile_execution_boundary=None, mark_unknown_execution_boundary=None, create_expected_outcome_boundary=None, record_actual_outcome_boundary=None, verify_outcome_boundary=None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -89,6 +89,9 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
             complete_execution_boundary=complete_execution_boundary,
             reconcile_execution_boundary=reconcile_execution_boundary,
             mark_unknown_execution_boundary=mark_unknown_execution_boundary,
+            create_expected_outcome_boundary=create_expected_outcome_boundary,
+            record_actual_outcome_boundary=record_actual_outcome_boundary,
+            verify_outcome_boundary=verify_outcome_boundary,
             principal_provider=principal_provider,
         )
     )
