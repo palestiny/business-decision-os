@@ -23,6 +23,12 @@ from decision_os.application.make_decision_reliability import MakeDecisionReliab
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
 from decision_os.application.reject_decision_reliability import RejectDecisionReliabilityBoundary
 from decision_os.application.start_analysis_reliability import StartAnalysisReliabilityBoundary
+from decision_os.application.create_expected_outcome_reliability import CreateExpectedOutcomeReliabilityBoundary
+from decision_os.application.record_actual_outcome_reliability import RecordActualOutcomeReliabilityBoundary
+from decision_os.application.verify_outcome_reliability import VerifyOutcomeReliabilityBoundary
+from decision_os.application.commands.create_expected_outcome import CreateExpectedOutcomeCommand
+from decision_os.application.commands.record_actual_outcome import RecordActualOutcomeCommand
+from decision_os.application.commands.verify_outcome import VerifyOutcomeCommand
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand
 from decision_os.application.commands.triage_case import TriageCaseCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand
@@ -61,6 +67,21 @@ class MakeDecisionRequest:
     decision_id: UUID
     option_ids: tuple[UUID, ...]
     rationale: str
+
+
+@dataclass(frozen=True)
+class ExpectedOutcomeRequest:
+    outcome_id: UUID
+    metric: str
+    operator: str
+    target: float
+
+
+@dataclass(frozen=True)
+class ActualOutcomeRequest:
+    outcome_id: UUID
+    expected_outcome_id: UUID
+    observed_value: float
 
 
 def _case_response(case, correlation_id: UUID) -> dict[str, object]:
@@ -108,6 +129,9 @@ def build_router(
     complete_execution_boundary: CompleteActionExecutionReliabilityBoundary | None = None,
     reconcile_execution_boundary: ReconcileUnknownExecutionReliabilityBoundary | None = None,
     mark_unknown_execution_boundary: MarkExecutionUnknownReliabilityBoundary | None = None,
+    create_expected_outcome_boundary: CreateExpectedOutcomeReliabilityBoundary | None = None,
+    record_actual_outcome_boundary: RecordActualOutcomeReliabilityBoundary | None = None,
+    verify_outcome_boundary: VerifyOutcomeReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -374,6 +398,23 @@ def build_router(
             }
 
 
+    if create_expected_outcome_boundary is not None:
+        @router.post("/decision-cases/{case_id}/outcomes/expected", status_code=201)
+        def create_expected_outcome(case_id: UUID, body: ExpectedOutcomeRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
+            outcome = create_expected_outcome_boundary.execute(CreateExpectedOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, outcome_id=body.outcome_id, metric=body.metric, operator=body.operator, target=body.target), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            return {"data": {"id": str(outcome.id), "case_id": str(outcome.case_id), "metric": outcome.metric, "operator": outcome.operator, "target": outcome.target}, "correlation_id": str(request.state.correlation_id)}
+
+    if record_actual_outcome_boundary is not None:
+        @router.post("/decision-cases/{case_id}/outcomes/actual", status_code=201)
+        def record_actual_outcome(case_id: UUID, body: ActualOutcomeRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
+            outcome = record_actual_outcome_boundary.execute(RecordActualOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, outcome_id=body.outcome_id, expected_outcome_id=body.expected_outcome_id, observed_value=body.observed_value), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            return {"data": {"id": str(outcome.id), "case_id": str(outcome.case_id), "expected_outcome_id": str(outcome.expected_outcome_id), "observed_value": outcome.observed_value, "status": outcome.status.value}, "correlation_id": str(request.state.correlation_id)}
+
+    if verify_outcome_boundary is not None:
+        @router.post("/decision-cases/{case_id}/outcomes/{actual_outcome_id}/verify", status_code=200)
+        def verify_outcome(case_id: UUID, actual_outcome_id: UUID, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key"), verification_id: UUID | None = Header(None, alias="X-Verification-ID")) -> dict[str, object]:
+            verification = verify_outcome_boundary.execute(VerifyOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, verification_id=verification_id or UUID(int=0), actual_outcome_id=actual_outcome_id), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            return {"data": {"id": str(verification.id), "case_id": str(verification.case_id), "actual_outcome_id": str(verification.actual_outcome_id), "status": verification.status.value}, "correlation_id": str(request.state.correlation_id)}
     if mark_unknown_execution_boundary is not None:
         @router.post("/action-executions/{execution_id}/unknown", status_code=200)
         def mark_execution_unknown(
