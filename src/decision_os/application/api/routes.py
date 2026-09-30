@@ -9,6 +9,11 @@ from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
+from decision_os.application.complete_action_execution_reliability import CompleteActionExecutionReliabilityBoundary
+from decision_os.application.reconcile_unknown_execution_reliability import ReconcileUnknownExecutionReliabilityBoundary
+from decision_os.application.commands.complete_action_execution import CompleteActionExecutionCommand
+from decision_os.application.commands.reconcile_unknown_execution import ReconcileUnknownExecutionCommand
+from decision_os.domain.action import ActionExecutionStatus
 from decision_os.application.submit_options_reliability import SubmitOptionsReliabilityBoundary
 from decision_os.application.await_decision_reliability import AwaitDecisionReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
@@ -98,6 +103,8 @@ def build_router(
     await_decision_boundary: AwaitDecisionReliabilityBoundary | None = None,
     create_action_boundary: CreateActionReliabilityBoundary | None = None,
     start_action_boundary: StartActionReliabilityBoundary | None = None,
+    complete_execution_boundary: CompleteActionExecutionReliabilityBoundary | None = None,
+    reconcile_execution_boundary: ReconcileUnknownExecutionReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -320,5 +327,48 @@ def build_router(
                 },
                 "correlation_id": str(request.state.correlation_id),
             }
+
+    if complete_execution_boundary is not None:
+        @router.post("/action-executions/{execution_id}/complete", status_code=200)
+        def complete_action_execution(
+            execution_id: UUID,
+            outcome: ActionExecutionStatus,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            execution = complete_execution_boundary.execute(
+                CompleteActionExecutionCommand(
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    execution_id=execution_id, outcome=outcome,
+                ),
+                idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {"id": str(execution.id), "action_id": str(execution.action_id), "attempt": execution.attempt, "status": execution.status.value},
+                "correlation_id": str(request.state.correlation_id),
+            }
+
+    if reconcile_execution_boundary is not None:
+        @router.post("/action-executions/{execution_id}/reconcile", status_code=200)
+        def reconcile_unknown_execution(
+            execution_id: UUID,
+            observed_outcome: ActionExecutionStatus,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+            idempotency_key: str = Header(..., alias="Idempotency-Key"),
+        ) -> dict[str, object]:
+            execution = reconcile_execution_boundary.execute(
+                ReconcileUnknownExecutionCommand(
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    execution_id=execution_id, observed_outcome=observed_outcome,
+                ),
+                idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
+            )
+            return {
+                "data": {"id": str(execution.id), "action_id": str(execution.action_id), "attempt": execution.attempt, "status": execution.status.value},
+                "correlation_id": str(request.state.correlation_id),
+            }
+
 
     return router
