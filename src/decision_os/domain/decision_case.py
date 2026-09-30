@@ -60,6 +60,8 @@ class DecisionCase:
     def reject(self) -> None: self._transition(CaseStatus.REJECTED)
     def execute(self) -> None: self._transition(CaseStatus.EXECUTING)
     def outcome_pending(self) -> None: self._transition(CaseStatus.OUTCOME_PENDING)
+    def start_verification(self) -> None: self._transition(CaseStatus.VERIFYING)
+    def close(self) -> None: self._transition(CaseStatus.CLOSED)
 
     def _transition(self, target: CaseStatus) -> None:
         allowed = {
@@ -72,6 +74,8 @@ class DecisionCase:
             CaseStatus.AWAITING_APPROVAL: {CaseStatus.APPROVED, CaseStatus.REJECTED},
             CaseStatus.APPROVED: {CaseStatus.EXECUTING},
             CaseStatus.EXECUTING: {CaseStatus.OUTCOME_PENDING},
+            CaseStatus.OUTCOME_PENDING: {CaseStatus.VERIFYING},
+            CaseStatus.VERIFYING: {CaseStatus.CLOSED},
         }
         if target not in allowed.get(self.status, set()):
             raise InvalidCaseTransition(f"{self.status} -> {target} is not allowed")
