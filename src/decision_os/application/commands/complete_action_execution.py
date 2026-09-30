@@ -31,7 +31,6 @@ class CompleteActionExecutionHandler:
         self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=action.case_id)
         if action.status is not ActionStatus.EXECUTING:
             raise InvalidAction("action must be executing")
-        execution.start() if execution.status is ActionExecutionStatus.REQUESTED else None
         expected_action_version = action.version
         if command.outcome is ActionExecutionStatus.SUCCEEDED:
             execution.succeed()
