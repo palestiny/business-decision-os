@@ -6,7 +6,7 @@ Execution outcome and UNKNOWN reconciliation foundation.
 
 ## Status
 
-NOT YET PROVEN
+PASS
 
 ## Design
 
@@ -36,15 +36,15 @@ Added:
 
 ## Verification
 
-CI run #474 failed with 2 unit-test fixture defects; both were traced to stale test setup rather than a production semantic defect. A follow-up CI run is required.
+CI #478 passed on Python 3.12 and 3.13 after the fixture corrections.
 
 Previous CI run #468 exposed four test issues:
 1. StartAction test expected RUNNING while implementation still persisted REQUESTED.
 2. Outcome test used APPROVED Case instead of EXECUTING Case.
 3. Two unit fakes had stale execution-save signatures.
 
-Both are corrected at the test boundary. No architectural workaround was used.
+The fixes remain at the test boundary. No architectural workaround was used.
 
 ## Next
 
-Verify CI #472. If green, mark CHECKPOINT-027 PASS. If not, inspect the actual failing job and fix root cause before proceeding.
+Checkpoint verified. Next: Business Outcome + Verification design gate.
