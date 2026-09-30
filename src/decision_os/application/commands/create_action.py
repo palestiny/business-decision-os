@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from decision_os.application.ports.authority import AuthorizationPort, Permission
 from decision_os.application.ports.unit_of_work import UnitOfWork
-from decision_os.domain.action import Action
+from decision_os.domain.action import Action, InvalidAction
 from decision_os.domain.decision import DecisionStatus
 from decision_os.domain.decision_case import CaseStatus
 
@@ -27,18 +27,18 @@ class CreateActionHandler:
     def handle(self, command: CreateActionCommand) -> Action:
         case = self._uow.decision_cases.get(command.case_id, command.tenant_id)
         if case is None:
-            raise ValueError("decision case not found")
+            raise InvalidAction("decision case not found")
         self._authorization.require(
             actor_id=command.actor_id, tenant_id=command.tenant_id,
             permission=Permission.CREATE_ACTION, resource_id=command.case_id,
         )
         if case.status is not CaseStatus.APPROVED:
-            raise ValueError("decision case must be approved before action creation")
+            raise InvalidAction("decision case must be approved before action creation")
         decision = self._uow.decisions.get(command.decision_id, command.tenant_id)
         if decision is None or decision.case_id != case.id:
-            raise ValueError("decision not found")
+            raise InvalidAction("decision not found")
         if decision.status is not DecisionStatus.APPROVED:
-            raise ValueError("decision must be approved before action creation")
+            raise InvalidAction("decision must be approved before action creation")
         action = Action.create(
             id=command.action_id or uuid4(), tenant_id=command.tenant_id,
             case_id=case.id, decision_id=decision.id,
