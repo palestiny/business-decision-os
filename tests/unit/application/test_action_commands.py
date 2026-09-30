@@ -148,3 +148,25 @@ def test_unknown_execution_requires_explicit_reconciliation():
     assert result.status is ActionExecutionStatus.FAILED
     assert action.status is ActionStatus.FAILED
     assert case.status is CaseStatus.OUTCOME_PENDING
+
+
+def test_mark_execution_unknown_keeps_action_executing():
+    tenant_id, case, decision = approved_context()
+    action = Action.create(id=uuid4(), tenant_id=tenant_id, case_id=case.id, decision_id=decision.id, action_type="UPDATE_BUDGET", parameters="{}")
+    action.ready()
+    action.start_execution()
+    execution = __import__("decision_os.domain.action", fromlist=["ActionExecution"]).ActionExecution.request(id=uuid4(), action_id=action.id, attempt=1)
+    execution.start()
+    auth = FakeAuthorization()
+    saved = []
+    uow = SimpleNamespace(
+        action_executions=SimpleNamespace(get=lambda *_: execution, save=lambda value: saved.append(value)),
+        actions=SimpleNamespace(get=lambda *_: action),
+    )
+    from decision_os.application.commands.mark_execution_unknown import MarkExecutionUnknownCommand, MarkExecutionUnknownHandler
+    result = MarkExecutionUnknownHandler(uow, auth).handle(MarkExecutionUnknownCommand(
+        tenant_id=tenant_id, execution_id=execution.id, actor_id=uuid4(),
+    ))
+    assert result.status is ActionExecutionStatus.UNKNOWN
+    assert action.status is ActionStatus.EXECUTING
+    assert case.status is CaseStatus.APPROVED
