@@ -51,6 +51,12 @@ class ActualOutcome:
     def mark_unknown(self) -> None:
         self.status = OutcomeStatus.UNKNOWN
 
+    def mark_verified(self) -> None:
+        self.status = OutcomeStatus.VERIFIED
+
+    def mark_failed(self) -> None:
+        self.status = OutcomeStatus.FAILED
+
 
 @dataclass
 class Verification:
