@@ -6,6 +6,7 @@ from decision_os.application.ports.authority import AuthorizationDenied, PolicyE
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.domain.decision_case import DomainError
+from decision_os.domain.action import InvalidAction
 
 
 def error_payload(code: str, message: str, correlation_id: str) -> dict[str, object]:
@@ -40,6 +41,10 @@ async def request_in_progress_handler(request: Request, exc: RequestInProgress) 
 
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse(status_code=409, content=error_payload("DOMAIN_CONFLICT", "The requested operation conflicts with the current decision case state.", _correlation_id(request)))
+
+
+async def invalid_action_handler(request: Request, exc: InvalidAction) -> JSONResponse:
+    return JSONResponse(status_code=409, content=error_payload("ACTION_CONFLICT", "The requested action operation conflicts with the current action state.", _correlation_id(request)))
 
 
 async def policy_unavailable_handler(request: Request, exc: PolicyEvaluationUnavailable) -> JSONResponse:
