@@ -13,54 +13,58 @@
 - [x] First vertical slice definition
 
 ## Stage 1 — Foundation
-- [ ] Project skeleton
-- [ ] Domain primitives
-- [ ] Application command/query contracts
-- [ ] Tenant context
-- [ ] Error model
+- [x] Project skeleton
+- [x] Domain primitives
+- [x] Application command/query contracts
+- [x] Tenant context
+- [x] Error model
 - [ ] Clock and ID abstractions
 - [ ] Architecture tests
 
 ## Stage 2 — Decision Core
-- [ ] DecisionCase
-- [ ] Case lifecycle
-- [ ] Evidence
-- [ ] Analysis findings
-- [ ] Options
-- [ ] Decision
-- [ ] Approval
+- [x] DecisionCase
+- [x] Case lifecycle
+- [x] Evidence
+- [x] Analysis findings
+- [x] Options
+- [x] Decision
+- [x] Approval
 
 ## Stage 3 — Reliability
-- [ ] Unit of Work
-- [ ] Idempotency
-- [ ] Optimistic concurrency
+- [x] Unit of Work
+- [x] Idempotency
+- [x] Optimistic concurrency
 - [ ] Domain events
-- [ ] Transactional outbox
-- [ ] Append-only audit
+- [x] Transactional outbox
+- [x] Append-only audit
 
 ## Stage 4 — Execution and Outcomes
-- [ ] Action
-- [ ] ActionExecution
-- [ ] Retry / UNKNOWN / reconciliation
-- [ ] Expected outcomes
-- [ ] Actual outcomes
-- [ ] Verification
-- [ ] Closure
+- [x] Action
+- [x] ActionExecution
+- [x] Retry / UNKNOWN / reconciliation
+- [x] Expected outcomes
+- [x] Actual outcomes
+- [x] Verification
+- [x] Closure
 
 ## Stage 5 — API
-- [ ] REST contracts
-- [ ] Authentication
-- [ ] Authorization
-- [ ] Tenant isolation
-- [ ] Idempotency contract
-- [ ] Error contract
+- [x] REST contracts
+- [x] Authentication boundary
+- [x] Authorization boundary
+- [x] Tenant isolation
+- [x] Idempotency contract
+- [x] Error contract
 
 ## Stage 6 — First vertical slice
 - [ ] PROJECT_MARGIN_RISK end-to-end
-- [ ] Synthetic controlled dataset
-- [ ] Full audit trail
-- [ ] Verification
+- [x] Synthetic controlled dataset foundation
+- [x] Full audit trail
+- [x] Verification
 - [ ] Decision memory projection
+
+### Current work
+
+CHECKPOINT-029: Evidence + Analysis foundation and PROJECT_MARGIN_RISK closed-loop integration test. Final CI verification is pending.
 
 ## Stage 7 — Abstraction validation
 - [ ] RESOURCE_CAPACITY_RISK
