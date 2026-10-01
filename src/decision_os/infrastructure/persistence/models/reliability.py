@@ -42,6 +42,8 @@ class OutboxMessageModel(Base):
     __tablename__ = "outbox_messages"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, index=True)
+    correlation_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, index=True)
     topic: Mapped[str] = mapped_column(String(200), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(100), nullable=False)
     aggregate_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
