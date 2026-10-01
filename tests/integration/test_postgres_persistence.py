@@ -187,7 +187,9 @@ def test_decision_case_optimistic_concurrency_conflict(session: Session) -> None
     session.commit()
 
     second.triage()
-    with pytest.raises(RuntimeError, match="concurrency conflict"):
+    from decision_os.application.ports.reliability import ConcurrencyConflict
+
+    with pytest.raises(ConcurrencyConflict, match="concurrency conflict"):
         repository.save(second)
     session.rollback()
 
