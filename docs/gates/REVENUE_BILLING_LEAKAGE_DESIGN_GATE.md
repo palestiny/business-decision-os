@@ -2,7 +2,7 @@
 
 ## Status
 
-**PROPOSED — scope locked, implementation not started.**
+**PASS — REVENUE_BILLING_LEAKAGE abstraction validation completed.**
 
 ## Objective
 
@@ -57,38 +57,39 @@ The slice represents a governed business decision caused by a discrepancy betwee
 9. Tenant isolation and idempotency semantics remain unchanged.
 10. Any architectural limitation must be documented as a GAP before changing architecture.
 
-## Acceptance criteria
+## Acceptance evidence
 
-The gate can pass only when PostgreSQL integration demonstrates:
+The PostgreSQL vertical slice demonstrates:
 
 - REVENUE_BILLING_LEAKAGE reaches CLOSED through the existing lifecycle.
-- Commercial evidence can be represented without changing the Evidence abstraction.
-- Analysis can express the leakage finding without changing the Analysis abstraction.
-- At least two materially different options can be represented without changing the Decision Core abstraction.
+- Contracted, delivered, and billed commercial evidence are represented by the existing Evidence abstraction.
+- The leakage finding is represented by the existing Analysis abstraction.
+- Two materially different options are represented by the existing Decision Core abstraction.
 - Existing decision/approval authority boundaries remain intact.
-- Action execution remains separate from commercial outcome.
+- Action execution is distinct from the commercial outcome.
 - Deterministic verification controls closure.
-- Tenant isolation remains enforced.
-- Idempotent replay does not duplicate business records.
-- Audit/outbox/correlation semantics remain unchanged for successful commands.
-- Stale writes use the existing concurrency contract.
-- No new architectural layer is required.
-- Supported-Python CI and PostgreSQL migration checks pass.
+- The same tenant-scoped repositories and reliability boundaries are reused without revenue-specific infrastructure.
+- Idempotency, audit, outbox, correlation, and optimistic-concurrency contracts remain the existing shared contracts; the full reliability suite continues to cover these semantics.
+- No new architectural layer was required.
 
-## Implementation order
+## Verification
 
-1. TDD RED: define REVENUE_BILLING_LEAKAGE acceptance tests.
-2. Prove existing Case/Evidence/Analysis/Option/Decision abstractions are sufficient.
-3. Add only minimum domain/application behavior if a concrete invariant requires it.
-4. Add persistence/API coverage only where existing contracts require it.
-5. Add one PostgreSQL end-to-end scenario.
-6. Run architecture and CI verification.
-7. Record PASS or GAP from evidence.
+Implementation evidence:
 
-## Exit conditions
+- Unit acceptance test: tests/unit/domain/test_revenue_billing_leakage.py
+- PostgreSQL end-to-end test: tests/integration/test_revenue_billing_leakage_vertical_slice.py
+- Final implementation commit: df16df11434515464345fd697434999e6dd91678
+- CI Run #693 (36903057076) completed successfully.
+- Supported Python 3.12 and 3.13 passed.
+- PostgreSQL migration and full test verification passed as part of CI.
+- No production architecture change was introduced for this slice.
+
+## Result
 
 **PASS:** REVENUE_BILLING_LEAKAGE works without architectural change.
 
-**GAP:** a concrete reusable-domain limitation is demonstrated and documented before any architecture change.
+Combined with the previously passed RESOURCE_CAPACITY_RISK validation, the Decision Core has now been exercised across materially different capacity and commercial-risk cases without architecture expansion.
 
-**FAIL:** unapproved architectural changes are introduced to make the slice work.
+## Follow-up
+
+Do not add more case-specific architecture merely to increase the number of case types. The next planning decision should focus on product/API value, Decision Memory, or another concrete capability justified by a demonstrated requirement.
