@@ -18,7 +18,7 @@
 - [x] Application command/query contracts
 - [x] Tenant context
 - [x] Error model
-- [ ] Clock and ID abstractions
+- [x] Clock and ID policy decision (abstractions deferred)
 - [x] Architecture tests
 
 ## Stage 2 — Decision Core
@@ -64,7 +64,7 @@
 
 ### Current work
 
-CHECKPOINT-030: First-slice hardening — architecture dependency guardrails. CI verification pending.
+CHECKPOINT-031: Foundation abstraction decision locked; operational hardening gate ready for TDD RED.
 
 ## Stage 7 — Abstraction validation
 - [ ] RESOURCE_CAPACITY_RISK
