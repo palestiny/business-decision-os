@@ -436,6 +436,42 @@ def test_create_case_reliability_boundary_rolls_back_all_postgres_writes_on_fail
     ) is None
 
 
+def test_idempotency_key_isolation_is_tenant_scoped(session: Session) -> None:
+    tenant_a = uuid4()
+    tenant_b = uuid4()
+    seed_tenant(session, tenant_a)
+    seed_tenant(session, tenant_b)
+
+    repository = SQLAlchemyIdempotencyRepository(session)
+    first = repository.reserve(
+        tenant_id=tenant_a,
+        operation="CreateDecisionCase",
+        key="shared-key",
+        request_hash="hash-a",
+    )
+    second = repository.reserve(
+        tenant_id=tenant_b,
+        operation="CreateDecisionCase",
+        key="shared-key",
+        request_hash="hash-b",
+    )
+
+    assert first.tenant_id == tenant_a
+    assert second.tenant_id == tenant_b
+    assert first.key == second.key == "shared-key"
+    assert first.status == second.status == "IN_PROGRESS"
+
+    session.commit()
+
+    rows = session.scalars(
+        select(IdempotencyRecordModel).where(
+            IdempotencyRecordModel.operation == "CreateDecisionCase",
+            IdempotencyRecordModel.key == "shared-key",
+        )
+    ).all()
+    assert {row.tenant_id for row in rows} == {tenant_a, tenant_b}
+
+
 def test_reliability_adapters_persist_in_one_transaction(session: Session) -> None:
     tenant_id = uuid4()
     actor_id = uuid4()
