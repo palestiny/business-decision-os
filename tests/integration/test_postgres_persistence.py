@@ -1082,6 +1082,16 @@ def test_submit_options_http_postgres_replay_persists_options_and_single_side_ef
     case.status = CaseStatus.ANALYZING
     case.version = 2
     SQLAlchemyDecisionCaseRepository(session).add(case)
+    session.flush()
+    session.add(AnalysisFindingModel(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        case_id=case.id,
+        kind="FACT",
+        statement="Current gross margin is below the expected threshold.",
+        confidence=0.99,
+        evidence_ids=json.dumps([]),
+    ))
     session.commit()
 
     uow = SQLAlchemyUnitOfWork(session)
