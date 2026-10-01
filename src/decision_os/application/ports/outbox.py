@@ -8,6 +8,8 @@ from uuid import UUID
 @dataclass(frozen=True)
 class OutboxMessage:
     id: UUID
+    tenant_id: UUID
+    correlation_id: UUID
     topic: str
     aggregate_type: str
     aggregate_id: UUID
@@ -23,6 +25,8 @@ class OutboxPort(Protocol):
 @dataclass(frozen=True)
 class OutboxRecord:
     id: UUID
+    tenant_id: UUID | None
+    correlation_id: UUID | None
     topic: str
     aggregate_type: str
     aggregate_id: UUID
