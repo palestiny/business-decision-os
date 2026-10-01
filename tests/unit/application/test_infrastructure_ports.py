@@ -33,6 +33,8 @@ def test_idempotency_failures_are_distinct() -> None:
 def test_outbox_message_has_stable_identity_and_timestamp() -> None:
     message = OutboxMessage(
         id=uuid4(),
+        tenant_id=uuid4(),
+        correlation_id=uuid4(),
         topic="decision.made",
         aggregate_type="DecisionCase",
         aggregate_id=uuid4(),
