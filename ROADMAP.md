@@ -64,12 +64,27 @@
 
 ## Stage 7 — Abstraction validation
 - [x] RESOURCE_CAPACITY_RISK
-- [ ] REVENUE_BILLING_LEAKAGE
-- [ ] Confirm Decision Core works without architectural change
+- [x] REVENUE_BILLING_LEAKAGE
+- [x] Confirm Decision Core works without architectural change
 
-### Current work
+### Current status
 
-CHECKPOINT-034: RESOURCE_CAPACITY_RISK abstraction validation passed. Next: design-gate and TDD RED for REVENUE_BILLING_LEAKAGE.
+**Stage 7 abstraction validation is complete.**
+
+Validated cases:
+- PROJECT_MARGIN_RISK
+- RESOURCE_CAPACITY_RISK
+- REVENUE_BILLING_LEAKAGE
+
+Both materially different validation cases added after the first slice reused the existing Decision Core without architectural expansion.
+
+### Next planning decision
+
+Prioritize product value rather than adding case types solely for abstraction validation. Candidate next areas:
+
+1. Decision Memory projection.
+2. Production-grade API/product surface.
+3. Another domain capability only when a concrete requirement exposes a reusable-domain gap.
 
 ## Explicitly deferred
 - AI agents
