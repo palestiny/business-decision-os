@@ -24,7 +24,7 @@ def authenticated_client(exc):
         request.state.principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=uuid4())
         return await call_next(request)
 
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 def test_authorization_denied_maps_to_403():
