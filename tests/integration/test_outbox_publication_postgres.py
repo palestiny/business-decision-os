@@ -73,7 +73,7 @@ def test_postgres_outbox_publication_marks_message_only_after_external_success(s
         transaction=transaction,
     )
 
-    result = service.publish_one(repository.get_unpublished()[0])
+    result = service.publish_one(message)
 
     assert result.message_id == message.id
     assert result.published is True
