@@ -100,7 +100,7 @@ def test_postgres_outbox_publication_leaves_message_unpublished_when_delivery_ou
         transaction=transaction,
     )
 
-    result = service.publish_one(repository.get_unpublished()[0])
+    result = service.publish_one(next(item for item in repository.get_unpublished() if item.id == message.id))
 
     assert result.message_id == message.id
     assert result.published is False
