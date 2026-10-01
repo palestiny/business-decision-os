@@ -28,6 +28,9 @@ class RecordingPublisher:
     def __init__(self):
         self.messages = []
 
+    def publish(self, message):
+        self.messages.append(message)
+
 class UnknownPublisher:
     def publish(self, message):
         raise PublicationOutcomeUnknown("external acknowledgement timed out")
