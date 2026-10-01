@@ -1248,3 +1248,46 @@ def test_await_decision_http_postgres_replay_persists_transition_and_single_side
         OutboxMessageModel.topic == "decision-case.awaiting-decision",
     )).all()
     assert len(outbox_rows) == 1
+
+def test_create_case_http_idempotency_conflict_returns_409(session: Session) -> None:
+    from fastapi.testclient import TestClient
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    seed_tenant(session, tenant_id)
+
+    uow = SQLAlchemyUnitOfWork(session)
+    boundary = CreateDecisionCaseReliabilityBoundary(
+        uow=uow,
+        handler=CreateDecisionCaseHandler(uow, AllowCreateCaseAuthorization()),
+        idempotency=SQLAlchemyIdempotencyRepository(session),
+        audit=SQLAlchemyAuditRepository(session),
+        outbox=SQLAlchemyOutboxRepository(session),
+    )
+    app = create_app(create_case_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+        return await call_next(request)
+
+    client = TestClient(app)
+    headers = {"Idempotency-Key": "create-conflict-http-001"}
+    first = client.post(
+        "/api/v1/decision-cases",
+        headers=headers,
+        json={"case_type": "PROJECT_MARGIN_RISK", "title": "Original"},
+    )
+    conflict = client.post(
+        "/api/v1/decision-cases",
+        headers=headers,
+        json={"case_type": "PROJECT_MARGIN_RISK", "title": "Different request"},
+    )
+
+    assert first.status_code == 201
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+    assert conflict.json()["correlation_id"]
+
+    cases = session.scalars(select(DecisionCaseModel).where(DecisionCaseModel.tenant_id == tenant_id)).all()
+    assert len(cases) == 1
