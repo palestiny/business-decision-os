@@ -116,10 +116,17 @@ def test_resource_capacity_risk_full_closed_loop(session: Session):
         confidence=0.99, snapshot="capacity-october:required",
     ), idempotency_key="slice-evidence")
 
+    available_evidence = create_evidence.execute(CreateEvidenceCommand(
+        tenant_id=tenant_id, case_id=case_id, actor_id=actor_id, evidence_id=uuid4(),
+        source="RESOURCE_SYSTEM", metric="available_capacity_hours", value="180", unit="hours",
+        period="2026-10", captured_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+        confidence=0.99, snapshot="capacity-october:available",
+    ), idempotency_key="slice-available-capacity")
+
     add_finding.execute(AddAnalysisFindingCommand(
         tenant_id=tenant_id, case_id=case_id, actor_id=actor_id, finding_id=uuid4(),
         kind=AnalysisKind.INFERENCE, statement="Required capacity exceeds available capacity by 60 hours.",
-        confidence=0.9, evidence_ids=(evidence.id,),
+        confidence=0.9, evidence_ids=(evidence.id, available_evidence.id),
     ), idempotency_key="slice-finding")
 
     option_ids = (uuid4(), uuid4())
