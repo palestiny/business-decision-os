@@ -18,11 +18,20 @@ class Repo:
     def get_case(self, case_id, tenant_id):
         return self.cases.get(case_id)
 
+    def get(self, case_id, tenant_id):
+        return self.cases.get(case_id)
+
     def add_evidence(self, evidence, tenant_id):
         self.evidence.append(evidence)
 
-    def list_evidence(self, case_id, tenant_id):
+    def list_for_case(self, case_id, tenant_id):
         return tuple(e for e in self.evidence if e.case_id == case_id)
+
+    def add(self, evidence, tenant_id):
+        self.evidence.append(evidence)
+
+    def list_evidence(self, case_id, tenant_id):
+        return self.list_for_case(case_id, tenant_id)
 
     def add_finding(self, finding, tenant_id):
         self.findings.append(finding)
