@@ -25,49 +25,28 @@ def test_revenue_billing_leakage_reuses_existing_decision_core():
 
     captured_at = datetime.now(timezone.utc)
     contracted = Evidence.create(
-        id=uuid4(),
-        case_id=case_id,
-        source="CRM",
-        metric="contracted_revenue",
-        value="100000",
-        unit="EGP",
-        period="2026-10",
-        captured_at=captured_at,
-        confidence=0.99,
+        id=uuid4(), case_id=case_id, source="CRM",
+        metric="contracted_revenue", value="100000", unit="EGP",
+        period="2026-10", captured_at=captured_at, confidence=0.99,
         snapshot="billing-october:contracted",
     )
     delivered = Evidence.create(
-        id=uuid4(),
-        case_id=case_id,
-        source="DELIVERY_SYSTEM",
-        metric="delivered_revenue",
-        value="90000",
-        unit="EGP",
-        period="2026-10",
-        captured_at=captured_at,
-        confidence=0.98,
+        id=uuid4(), case_id=case_id, source="DELIVERY_SYSTEM",
+        metric="delivered_revenue", value="90000", unit="EGP",
+        period="2026-10", captured_at=captured_at, confidence=0.98,
         snapshot="billing-october:delivered",
     )
     billed = Evidence.create(
-        id=uuid4(),
-        case_id=case_id,
-        source="BILLING_SYSTEM",
-        metric="billed_revenue",
-        value="75000",
-        unit="EGP",
-        period="2026-10",
-        captured_at=captured_at,
-        confidence=0.99,
+        id=uuid4(), case_id=case_id, source="BILLING_SYSTEM",
+        metric="billed_revenue", value="75000", unit="EGP",
+        period="2026-10", captured_at=captured_at, confidence=0.99,
         snapshot="billing-october:billed",
     )
 
     finding = AnalysisFinding.create(
-        id=uuid4(),
-        case_id=case_id,
-        kind=AnalysisKind.INFERENCE,
+        id=uuid4(), case_id=case_id, kind=AnalysisKind.INFERENCE,
         statement="Delivered value exceeds billed value by 15000 EGP.",
-        confidence=0.95,
-        evidence_ids=(delivered.id, billed.id),
+        confidence=0.95, evidence_ids=(delivered.id, billed.id),
     )
 
     assert case.status is CaseStatus.ANALYZING
@@ -77,18 +56,18 @@ def test_revenue_billing_leakage_reuses_existing_decision_core():
 
     case.submit_options()
     options = (
-        DecisionOption.create(uuid4(), case_id, "Issue corrective invoice"),
-        DecisionOption.create(uuid4(), case_id, "Escalate contract and billing review"),
+        DecisionOption.create(id=uuid4(), case_id=case_id, title="Issue corrective invoice"),
+        DecisionOption.create(id=uuid4(), case_id=case_id, title="Escalate contract and billing review"),
     )
     case.await_decision()
 
     decision = Decision.make(
         id=uuid4(),
         case_id=case_id,
-        option_ids=(options[0].id,),
+        available_options=options,
+        selected_option_ids=(options[0].id,),
         rationale="Recover delivered value that has not been billed.",
         decided_by=actor_id,
-        options=options,
         approval_required=True,
     )
 
@@ -97,16 +76,10 @@ def test_revenue_billing_leakage_reuses_existing_decision_core():
 
 def test_revenue_billing_leakage_evidence_remains_immutable():
     evidence = Evidence.create(
-        id=uuid4(),
-        case_id=uuid4(),
-        source="BILLING_SYSTEM",
-        metric="billed_revenue",
-        value="75000",
-        unit="EGP",
-        period="2026-10",
-        captured_at=datetime.now(timezone.utc),
-        confidence=0.99,
-        snapshot="billing-october:billed",
+        id=uuid4(), case_id=uuid4(), source="BILLING_SYSTEM",
+        metric="billed_revenue", value="75000", unit="EGP",
+        period="2026-10", captured_at=datetime.now(timezone.utc),
+        confidence=0.99, snapshot="billing-october:billed",
     )
 
     with pytest.raises((AttributeError, TypeError)):
