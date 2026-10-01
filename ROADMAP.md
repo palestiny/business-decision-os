@@ -64,7 +64,7 @@
 
 ### Current work
 
-CHECKPOINT-031: Foundation abstraction decision locked; operational hardening gate ready for TDD RED.
+CHECKPOINT-032: Operational hardening slice 1 — outbox tenant/correlation metadata. CI verification pending.
 
 ## Stage 7 — Abstraction validation
 - [ ] RESOURCE_CAPACITY_RISK
