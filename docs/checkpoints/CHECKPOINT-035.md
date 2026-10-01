@@ -2,22 +2,44 @@
 
 ## Status
 
-**DESIGN-LOCKED — REVENUE_BILLING_LEAKAGE abstraction validation gate opened.**
+**PASS — REVENUE_BILLING_LEAKAGE abstraction validation completed.**
 
 ## Completed
 
 - RESOURCE_CAPACITY_RISK abstraction validation passed.
-- Gate evidence and checkpoint were recorded.
-- Roadmap was refreshed to reflect the verified state.
-- REVENUE_BILLING_LEAKAGE was selected as the next materially different validation case.
-- Scope, constraints, acceptance criteria, and exit conditions are documented.
+- REVENUE_BILLING_LEAKAGE scope, constraints, acceptance criteria, and exit conditions were locked.
+- TDD RED unit coverage was added and passed.
+- PostgreSQL end-to-end coverage was added and passed.
+- Contracted, delivered, and billed commercial evidence were represented by the existing Evidence abstraction.
+- Leakage analysis was represented by the existing Analysis abstraction.
+- Two materially different decision options were represented by the existing Decision Core.
+- Decision and approval remained separate.
+- Action execution remained separate from the commercial outcome.
+- Deterministic verification closed the case.
+- Existing tenant, idempotency, audit, outbox, correlation, and optimistic-concurrency contracts were reused.
+- No new architectural layer was introduced.
+- CI Run #693 completed successfully on Python 3.12 and 3.13 with PostgreSQL verification.
 
-## Architectural intent
+## Verification
 
-This slice is a validation exercise. The goal is to prove that commercial/revenue leakage can be represented by the existing Decision Core without introducing revenue-specific infrastructure or architectural expansion.
+Final implementation commit:
 
-No new architecture is approved by this checkpoint.
+df16df11434515464345fd697434999e6dd91678
+
+CI:
+
+36903057076 — Run #693 — SUCCESS
+
+## Architectural conclusion
+
+The Decision Core generalized to a materially different commercial-risk case without architecture change.
+
+This closes the current abstraction-validation objective. Further case types should be justified by product value or a concrete uncovered domain requirement, not by an arbitrary target count.
 
 ## Next action
 
-Start TDD RED for REVENUE_BILLING_LEAKAGE and first prove whether the existing Case, Evidence, Analysis, Option, Decision, Approval, Action, Outcome, and Verification abstractions are sufficient.
+Move from abstraction validation into the next product/architecture priority. Candidate areas are:
+
+- Decision Memory projection.
+- Production-grade API/product surface.
+- Another capability only if a concrete requirement exposes a reusable-domain gap.
