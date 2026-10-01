@@ -5,18 +5,13 @@ from fastapi.responses import JSONResponse
 from decision_os.application.ports.authority import AuthorizationDenied, PolicyEvaluationUnavailable
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.application.ports.authentication import AuthenticationRequired
+from decision_os.application.ports.reliability import ConcurrencyConflict
 from decision_os.domain.decision_case import DomainError
 from decision_os.domain.action import InvalidAction
 
 
 def error_payload(code: str, message: str, correlation_id: str) -> dict[str, object]:
-    return {
-        "error": {
-            "code": code,
-            "message": message,
-        },
-        "correlation_id": correlation_id,
-    }
+    return {"error": {"code": code, "message": message}, "correlation_id": correlation_id}
 
 
 def _correlation_id(request: Request) -> str:
@@ -37,6 +32,10 @@ async def idempotency_conflict_handler(request: Request, exc: IdempotencyConflic
 
 async def request_in_progress_handler(request: Request, exc: RequestInProgress) -> JSONResponse:
     return JSONResponse(status_code=409, content=error_payload("REQUEST_IN_PROGRESS", "A request with this idempotency key is already in progress.", _correlation_id(request)))
+
+
+async def concurrency_conflict_handler(request: Request, exc: ConcurrencyConflict) -> JSONResponse:
+    return JSONResponse(status_code=409, content=error_payload("CONCURRENCY_CONFLICT", "The resource was changed concurrently; retry with the current version.", _correlation_id(request)))
 
 
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
