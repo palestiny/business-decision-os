@@ -25,14 +25,14 @@ class OutboxPort(Protocol):
 @dataclass(frozen=True)
 class OutboxRecord:
     id: UUID
-    tenant_id: UUID | None
-    correlation_id: UUID | None
     topic: str
     aggregate_type: str
     aggregate_id: UUID
     payload: str
     occurred_at: datetime
     published_at: datetime | None
+    tenant_id: UUID | None = None
+    correlation_id: UUID | None = None
 
 
 class OutboxPublicationPort(Protocol):
