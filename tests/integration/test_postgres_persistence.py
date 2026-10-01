@@ -466,9 +466,12 @@ def test_reliability_adapters_persist_in_one_transaction(session: Session) -> No
             correlation_id=uuid4(),
         )
     )
+    correlation_id = uuid4()
     outbox.add(
         OutboxMessage(
             id=uuid4(),
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
             topic="decision-case.created",
             aggregate_type="DecisionCase",
             aggregate_id=case_id,
