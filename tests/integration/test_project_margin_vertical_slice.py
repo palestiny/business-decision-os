@@ -163,4 +163,4 @@ def test_project_margin_risk_full_closed_loop(session: Session):
     persisted = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case_id))
     assert persisted is not None
     assert persisted.status == "CLOSED"
-    assert persisted.version == 10
+    assert persisted.version == 11
