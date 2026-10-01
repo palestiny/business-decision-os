@@ -123,10 +123,17 @@ def test_revenue_billing_leakage_full_closed_loop(session: Session):
         confidence=0.99, snapshot="billing-october:delivered",
     ), idempotency_key="slice-delivered-revenue")
 
+    billed_evidence = create_evidence.execute(CreateEvidenceCommand(
+        tenant_id=tenant_id, case_id=case_id, actor_id=actor_id, evidence_id=uuid4(),
+        source="BILLING_SYSTEM", metric="billed_revenue", value="75000", unit="EGP",
+        period="2026-10", captured_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+        confidence=0.99, snapshot="billing-october:billed",
+    ), idempotency_key="slice-billed-revenue")
+
     add_finding.execute(AddAnalysisFindingCommand(
         tenant_id=tenant_id, case_id=case_id, actor_id=actor_id, finding_id=uuid4(),
         kind=AnalysisKind.INFERENCE, statement="Delivered value exceeds billed value by 15000 EGP.",
-        confidence=0.9, evidence_ids=(evidence.id, available_evidence.id),
+        confidence=0.9, evidence_ids=(available_evidence.id, billed_evidence.id),
     ), idempotency_key="slice-finding")
 
     option_ids = (uuid4(), uuid4())
