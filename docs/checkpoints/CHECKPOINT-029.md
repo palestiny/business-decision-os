@@ -6,7 +6,7 @@ First Vertical Slice foundation: Evidence and Analysis for `PROJECT_MARGIN_RISK`
 
 ## Status
 
-IN PROGRESS — implementation is present; final CI verification pending.
+PASS — implementation and CI verification completed.
 
 ## Design Gate
 
@@ -38,7 +38,19 @@ IN PROGRESS — implementation is present; final CI verification pending.
 
 ## Verification
 
-Pending CI on the latest branch head.
+GitHub Actions CI run #607 completed successfully on the branch head.
+
+CI covered:
+
+- Python 3.12
+- Python 3.13
+- PostgreSQL 17
+- Alembic upgrade/downgrade/upgrade
+- Alembic head check
+- Alembic schema drift check
+- pytest
+
+The first vertical slice PostgreSQL integration test proves the closed loop reaches `CLOSED` with deterministic outcome verification.
 
 ## Next
 
