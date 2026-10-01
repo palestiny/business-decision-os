@@ -62,14 +62,14 @@
 - [x] Verification
 - [ ] Decision memory projection
 
-### Current work
-
-CHECKPOINT-032: Operational hardening slice 1 — outbox tenant/correlation metadata. CI verification pending.
-
 ## Stage 7 — Abstraction validation
-- [ ] RESOURCE_CAPACITY_RISK
+- [x] RESOURCE_CAPACITY_RISK
 - [ ] REVENUE_BILLING_LEAKAGE
 - [ ] Confirm Decision Core works without architectural change
+
+### Current work
+
+CHECKPOINT-034: RESOURCE_CAPACITY_RISK abstraction validation passed. Next: design-gate and TDD RED for REVENUE_BILLING_LEAKAGE.
 
 ## Explicitly deferred
 - AI agents
