@@ -19,7 +19,7 @@
 - [x] Tenant context
 - [x] Error model
 - [ ] Clock and ID abstractions
-- [ ] Architecture tests
+- [x] Architecture tests
 
 ## Stage 2 — Decision Core
 - [x] DecisionCase
@@ -56,7 +56,7 @@
 - [x] Error contract
 
 ## Stage 6 — First vertical slice
-- [ ] PROJECT_MARGIN_RISK end-to-end
+- [x] PROJECT_MARGIN_RISK end-to-end
 - [x] Synthetic controlled dataset foundation
 - [x] Full audit trail
 - [x] Verification
@@ -64,7 +64,7 @@
 
 ### Current work
 
-CHECKPOINT-029: Evidence + Analysis foundation and PROJECT_MARGIN_RISK closed-loop integration test. Final CI verification is pending.
+CHECKPOINT-030: First-slice hardening — architecture dependency guardrails. CI verification pending.
 
 ## Stage 7 — Abstraction validation
 - [ ] RESOURCE_CAPACITY_RISK
