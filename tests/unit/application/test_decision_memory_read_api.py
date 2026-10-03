@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from decision_os.application.api.app import create_app
@@ -57,10 +58,13 @@ def test_decision_memory_read_returns_projection_and_consistency_metadata():
     )
     reader = FakeDecisionMemoryReader(view)
     principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=tenant_id)
+    def principal_provider(request: Request):
+        return principal
+
     app = create_app(
         create_case_boundary=object(),
         decision_memory_reader=reader,
-        principal_provider=lambda request: principal,
+        principal_provider=principal_provider,
     )
 
     response = TestClient(app).get(f"/api/v1/decision-cases/{case_id}/memory")
@@ -101,10 +105,13 @@ def test_decision_memory_read_is_tenant_scoped_and_returns_not_found():
         state="CURRENT",
     )
     principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=requesting_tenant)
+    def principal_provider(request: Request):
+        return principal
+
     app = create_app(
         create_case_boundary=object(),
         decision_memory_reader=FakeDecisionMemoryReader(view),
-        principal_provider=lambda request: principal,
+        principal_provider=principal_provider,
     )
 
     response = TestClient(app).get(f"/api/v1/decision-cases/{case_id}/memory")
