@@ -33,4 +33,7 @@ class DecisionMemoryProjectionModel(Base):
     projected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_projection_state: Mapped[str] = mapped_column(String(30), nullable=False, default="CURRENT")
 
-    __table_args__ = (\n        UniqueConstraint("tenant_id", "case_id", name="uq_decision_memory_tenant_case"),\n        Index("ix_decision_memory_projections_state", "last_projection_state"),\n    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "case_id", name="uq_decision_memory_tenant_case"),
+        Index("ix_decision_memory_projections_state", "last_projection_state"),
+    )
