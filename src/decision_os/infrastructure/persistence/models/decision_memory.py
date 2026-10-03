@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,4 +33,4 @@ class DecisionMemoryProjectionModel(Base):
     projected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_projection_state: Mapped[str] = mapped_column(String(30), nullable=False, default="CURRENT")
 
-    __table_args__ = (UniqueConstraint("tenant_id", "case_id", name="uq_decision_memory_tenant_case"),)
+    __table_args__ = (\n        UniqueConstraint("tenant_id", "case_id", name="uq_decision_memory_tenant_case"),\n        Index("ix_decision_memory_projections_state", "last_projection_state"),\n    )
