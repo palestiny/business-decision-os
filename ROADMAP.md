@@ -60,7 +60,7 @@
 - [x] Synthetic controlled dataset foundation
 - [x] Full audit trail
 - [x] Verification
-- [ ] Decision memory projection
+- [x] Decision memory projection
 
 ## Stage 7 — Abstraction validation
 - [x] RESOURCE_CAPACITY_RISK
@@ -69,24 +69,26 @@
 
 ### Current status
 
-**Stage 7 complete. Stage 8 Decision Memory design is now opened.**
+**Stage 7 complete. Stage 8 Decision Memory implementation is complete and gated PASS.**
 
 ## Stage 8 — Decision Memory
-- [ ] Source-of-truth model
-- [ ] Projection consistency model
-- [ ] Projection event/update contract
-- [ ] Tenant isolation
-- [ ] Idempotent projection updates
-- [ ] Rebuild/reconciliation semantics
-- [ ] Decision history query contract
-- [ ] PostgreSQL projection implementation
-- [ ] API query surface
-- [ ] Projection failure/lag verification
-- [ ] CI verification
+- [x] Source-of-truth model
+- [x] Projection consistency model
+- [x] Projection event/update contract
+- [x] Tenant isolation
+- [x] Idempotent projection updates
+- [x] Rebuild/reconciliation semantics
+- [x] Decision history query contract
+- [x] PostgreSQL projection implementation
+- [x] API query surface
+- [x] Projection failure/lag verification
+- [x] CI verification
 
 ### Current work
 
-CHECKPOINT-036: Decision Memory projection design review.
+**Decision Memory Design Gate: PASS.**
+
+Evidence: gate closed in commit 3ecc8e8409fc0b368428297b57745cb6264e0786; CI Run #762 (37155367148) passed on Python 3.12 and 3.13 with PostgreSQL migration lifecycle, alembic check, and full pytest.
 
 ## Explicitly deferred
 - AI agents
