@@ -74,6 +74,7 @@ def test_projector_reads_authoritative_state_and_is_tenant_scoped(session: Sessi
     session.add(AnalysisFindingModel(id=finding_id, tenant_id=tenant_id, case_id=case.id, kind="INFERENCE", statement="Margin is below threshold.", confidence=0.9, evidence_ids='["%s"]' % evidence_id))
     action_id = uuid4()
     session.add(ActionModel(id=action_id, tenant_id=tenant_id, case_id=case.id, decision_id=decision.id, action_type="REDUCE_SCOPE", parameters="scope-10", status="COMPLETED", version=1))
+    session.flush()
     session.add(ActionExecutionModel(id=uuid4(), action_id=action_id, attempt=1, status="SUCCEEDED"))
     expected_id = uuid4()
     session.add(ExpectedOutcomeModel(id=expected_id, tenant_id=tenant_id, case_id=case.id, metric="gross_margin", operator="GTE", target="20"))
