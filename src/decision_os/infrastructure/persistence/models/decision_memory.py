@@ -28,6 +28,8 @@ class DecisionMemoryProjectionModel(Base):
     verification_summary: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     source_ids: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     authoritative_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    notified_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    projected_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     projected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_projection_state: Mapped[str] = mapped_column(String(30), nullable=False, default="CURRENT")
 
