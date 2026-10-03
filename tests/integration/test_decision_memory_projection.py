@@ -79,6 +79,7 @@ def test_projector_reads_authoritative_state_and_is_tenant_scoped(session: Sessi
     session.add(ActionExecutionModel(id=uuid4(), action_id=action_id, attempt=1, status="SUCCEEDED"))
     expected_id = uuid4()
     session.add(ExpectedOutcomeModel(id=expected_id, tenant_id=tenant_id, case_id=case.id, metric="gross_margin", operator="GTE", target="20"))
+    session.flush()
     actual_id = uuid4()
     session.add(ActualOutcomeModel(id=actual_id, tenant_id=tenant_id, case_id=case.id, expected_outcome_id=expected_id, observed_value="22", status="RECORDED"))
     verification_id = uuid4()
