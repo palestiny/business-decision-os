@@ -69,22 +69,24 @@
 
 ### Current status
 
-**Stage 7 abstraction validation is complete.**
+**Stage 7 complete. Stage 8 Decision Memory design is now opened.**
 
-Validated cases:
-- PROJECT_MARGIN_RISK
-- RESOURCE_CAPACITY_RISK
-- REVENUE_BILLING_LEAKAGE
+## Stage 8 — Decision Memory
+- [ ] Source-of-truth model
+- [ ] Projection consistency model
+- [ ] Projection event/update contract
+- [ ] Tenant isolation
+- [ ] Idempotent projection updates
+- [ ] Rebuild/reconciliation semantics
+- [ ] Decision history query contract
+- [ ] PostgreSQL projection implementation
+- [ ] API query surface
+- [ ] Projection failure/lag verification
+- [ ] CI verification
 
-Both materially different validation cases added after the first slice reused the existing Decision Core without architectural expansion.
+### Current work
 
-### Next planning decision
-
-Prioritize product value rather than adding case types solely for abstraction validation. Candidate next areas:
-
-1. Decision Memory projection.
-2. Production-grade API/product surface.
-3. Another domain capability only when a concrete requirement exposes a reusable-domain gap.
+CHECKPOINT-036: Decision Memory projection design review.
 
 ## Explicitly deferred
 - AI agents
@@ -93,3 +95,4 @@ Prioritize product value rather than adding case types solely for abstraction va
 - Microservices
 - Full event sourcing
 - Autonomous approval/execution
+- Vector/embedding memory
