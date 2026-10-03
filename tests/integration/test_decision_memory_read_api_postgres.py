@@ -3,13 +3,16 @@ import os
 from uuid import uuid4
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, close_all_sessions
 
 from decision_os.application.api.app import create_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
+from decision_os.domain.decision_case import DecisionCase
 from decision_os.infrastructure.persistence.models.decision_memory import DecisionMemoryProjectionModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
+from decision_os.infrastructure.persistence.repositories.decision_case import SQLAlchemyDecisionCaseRepository
 from decision_os.infrastructure.persistence.repositories.decision_memory import SQLAlchemyDecisionMemoryRepository
 from decision_os.infrastructure.persistence.session import build_session_factory
 
@@ -32,6 +35,18 @@ def session():
 
 def seed_tenant(session: Session, tenant_id):
     session.add(TenantModel(id=tenant_id, name="decision-memory-api-test"))
+    session.commit()
+
+
+def seed_case(session: Session, tenant_id, case_id):
+    case = DecisionCase.create(
+        id=case_id,
+        tenant_id=tenant_id,
+        case_type="PROJECT_MARGIN_RISK",
+        title="Margin risk",
+    )
+    case.version = 11
+    SQLAlchemyDecisionCaseRepository(session).add(case)
     session.commit()
 
 
@@ -66,7 +81,7 @@ def build_client(session: Session, tenant_id):
     principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=tenant_id)
     reader = SQLAlchemyDecisionMemoryRepository(session)
 
-    def principal_provider(request):
+    def principal_provider(request: Request):
         return principal
 
     return TestClient(
@@ -82,6 +97,7 @@ def test_decision_memory_read_api_uses_real_postgres_reader(session: Session):
     tenant_id = uuid4()
     case_id = uuid4()
     seed_tenant(session, tenant_id)
+    seed_case(session, tenant_id, case_id)
     seed_projection(session, tenant_id, case_id)
 
     response = build_client(session, tenant_id).get(
@@ -105,6 +121,7 @@ def test_decision_memory_read_api_enforces_tenant_isolation(session: Session):
     case_id = uuid4()
     seed_tenant(session, stored_tenant)
     seed_tenant(session, requesting_tenant)
+    seed_case(session, stored_tenant, case_id)
     seed_projection(session, stored_tenant, case_id)
 
     response = build_client(session, requesting_tenant).get(
