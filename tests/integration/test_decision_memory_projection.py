@@ -68,6 +68,7 @@ def test_projector_reads_authoritative_state_and_is_tenant_scoped(session: Sessi
     ))
     from decision_os.infrastructure.persistence.models.decision import DecisionSelectedOptionModel
     session.add(DecisionSelectedOptionModel(decision_id=decision.id, option_id=option.id))
+    session.flush()
     evidence_id = uuid4()
     session.add(EvidenceModel(id=evidence_id, tenant_id=tenant_id, case_id=case.id, source="PSA", metric="margin", value="12", unit="percent", period="2026-10", captured_at=datetime.now(timezone.utc), confidence=0.95, snapshot="margin=12"))
     finding_id = uuid4()
