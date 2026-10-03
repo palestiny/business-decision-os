@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Request
 
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
+from decision_os.application.ports.decision_memory import DecisionMemoryReader
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
@@ -162,6 +163,7 @@ def build_router(
     create_evidence_boundary: CreateEvidenceReliabilityBoundary | None = None,
     add_analysis_finding_boundary: AddAnalysisFindingReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
+    decision_memory_reader: DecisionMemoryReader | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
