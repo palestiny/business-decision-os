@@ -62,6 +62,13 @@ class SQLAlchemyDecisionMemoryProjector:
             projection = DecisionMemoryProjectionModel(id=uuid4(), tenant_id=tenant_id, case_id=case_id)
             self._session.add(projection)
 
+        previous_notified = projection.notified_version if projection is not None else None
+        effective_notified = max(
+            value for value in (previous_notified, notified_version, case.version)
+            if value is not None
+        )
+        state = "STALE" if effective_notified > case.version else "CURRENT"
+
         projection.case_type = case.case_type
         projection.case_title = case.title
         projection.case_status = case.status
@@ -76,10 +83,12 @@ class SQLAlchemyDecisionMemoryProjector:
         projection.verification_summary = ({"id": str(verification.id), "actual_outcome_id": str(verification.actual_outcome_id), "status": verification.status} if verification else None)
         projection.source_ids = source_ids
         projection.authoritative_version = case.version
+        projection.notified_version = effective_notified
+        projection.projected_version = case.version
         projection.projected_at = projected_at
-        projection.last_projection_state = "CURRENT"
+        projection.last_projection_state = state
         self._session.flush()
-        return DecisionMemorySnapshot(tenant_id=tenant_id, case_id=case_id, authoritative_version=case.version, projected_at=projected_at, state="CURRENT")
+        return DecisionMemorySnapshot(tenant_id=tenant_id, case_id=case_id, authoritative_version=case.version, projected_at=projected_at, state=state)
 
     def rebuild(self, *, tenant_id: UUID, case_id: UUID) -> DecisionMemorySnapshot:
         return self.project(tenant_id=tenant_id, case_id=case_id)
