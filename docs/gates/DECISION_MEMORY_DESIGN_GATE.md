@@ -2,7 +2,7 @@
 
 ## Status
 
-**DESIGN-LOCKED — consistency model selected; implementation not started.**
+**PASS — implementation, verification, and CI complete.**
 
 ## Decision
 
@@ -12,32 +12,45 @@ Decision Core remains authoritative. Decision Memory is a tenant-scoped, eventua
 
 ## Projection
 
-Initial record: tenant_id, case_id, case_type, case_title, case_status, decision_id, selected options, rationale, decision status, decided_by, approval status, action status, expected/observed outcome summaries, verification status, authoritative case version, source IDs, projected_at, and explicit projection state/lag metadata.
+Implemented projection stores tenant_id, case_id, case metadata, decision state, selected options, rationale, approval status, action/outcome/verification summaries, source IDs, authoritative case version, projection lag metadata, and projected_at.
 
 ## Reliability
 
 - projection identity is tenant + case;
 - duplicate delivery reloads current authoritative state;
 - out-of-order delivery reloads current authoritative state;
-- projection failure cannot roll back a committed business decision;
-- rebuild is from authoritative state, not historical outbox payloads;
-- tenant isolation is mandatory;
-- projection never validates or authorizes commands.
+- projection failure does not corrupt or roll back the authoritative business state;
+- rebuild reconstructs the projection from authoritative state;
+- tenant isolation is enforced by the projection repository and API;
+- projection never validates or authorizes commands;
+- projection lag is explicit through notified_version, projected_version, authoritative_version, and state.
+
+## Read / API
+
+Implemented tenant-scoped Decision Memory read repository and:
+GET /decision-cases/{case_id}/memory
+
+The response exposes decision, action, outcome, verification, source references, and projection metadata including current/stale state and versions.
+
+## Verification Evidence
+
+- Projection unit/integration coverage for authoritative-state projection.
+- Duplicate/out-of-order notification verification.
+- Projection failure isolation.
+- Rebuild verification.
+- Explicit projection-lag verification.
+- Tenant isolation verification.
+- PostgreSQL read API integration coverage.
+- Migration lifecycle and alembic check verification.
+- CI Run **#762** (`37155367148`) succeeded on both Python **3.12** and **3.13**.
+- CI executed PostgreSQL-backed migration lifecycle and full pytest suite.
 
 ## Out of scope
 
 AI summaries, embeddings, graph storage, cross-tenant analytics, event sourcing, external brokers, and replacing the transactional outbox.
 
-## Acceptance criteria
+## Gate Decision
 
-A completed decision is projected and queried; tenant isolation is proven; duplicate/out-of-order delivery is harmless; projection failure does not corrupt authoritative state; source references and authoritative version are retained; rebuild/reconciliation works; projection lag is explicit; PostgreSQL and supported-Python CI pass; no external infrastructure is introduced.
+**PASS.**
 
-## Next implementation order
-
-1. Projection schema/model and source/version contract.
-2. Authoritative-state projector.
-3. Outbox-trigger adapter.
-4. Query/read contract.
-5. TDD RED for duplicate, ordering, failure, rebuild, tenant isolation.
-6. PostgreSQL integration.
-7. CI verification.
+Decision Memory now has a verified first implementation and read surface. The next work should be a controlled follow-up slice, not expansion of Decision Memory into event sourcing, a broker, or an ERP replacement.
