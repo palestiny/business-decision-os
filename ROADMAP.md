@@ -13,59 +13,82 @@
 - [x] First vertical slice definition
 
 ## Stage 1 — Foundation
-- [ ] Project skeleton
-- [ ] Domain primitives
-- [ ] Application command/query contracts
-- [ ] Tenant context
-- [ ] Error model
-- [ ] Clock and ID abstractions
-- [ ] Architecture tests
+- [x] Project skeleton
+- [x] Domain primitives
+- [x] Application command/query contracts
+- [x] Tenant context
+- [x] Error model
+- [x] Clock and ID policy decision (abstractions deferred)
+- [x] Architecture tests
 
 ## Stage 2 — Decision Core
-- [ ] DecisionCase
-- [ ] Case lifecycle
-- [ ] Evidence
-- [ ] Analysis findings
-- [ ] Options
-- [ ] Decision
-- [ ] Approval
+- [x] DecisionCase
+- [x] Case lifecycle
+- [x] Evidence
+- [x] Analysis findings
+- [x] Options
+- [x] Decision
+- [x] Approval
 
 ## Stage 3 — Reliability
-- [ ] Unit of Work
-- [ ] Idempotency
-- [ ] Optimistic concurrency
+- [x] Unit of Work
+- [x] Idempotency
+- [x] Optimistic concurrency
 - [ ] Domain events
-- [ ] Transactional outbox
-- [ ] Append-only audit
+- [x] Transactional outbox
+- [x] Append-only audit
 
 ## Stage 4 — Execution and Outcomes
-- [ ] Action
-- [ ] ActionExecution
-- [ ] Retry / UNKNOWN / reconciliation
-- [ ] Expected outcomes
-- [ ] Actual outcomes
-- [ ] Verification
-- [ ] Closure
+- [x] Action
+- [x] ActionExecution
+- [x] Retry / UNKNOWN / reconciliation
+- [x] Expected outcomes
+- [x] Actual outcomes
+- [x] Verification
+- [x] Closure
 
 ## Stage 5 — API
-- [ ] REST contracts
-- [ ] Authentication
-- [ ] Authorization
-- [ ] Tenant isolation
-- [ ] Idempotency contract
-- [ ] Error contract
+- [x] REST contracts
+- [x] Authentication boundary
+- [x] Authorization boundary
+- [x] Tenant isolation
+- [x] Idempotency contract
+- [x] Error contract
 
 ## Stage 6 — First vertical slice
-- [ ] PROJECT_MARGIN_RISK end-to-end
-- [ ] Synthetic controlled dataset
-- [ ] Full audit trail
-- [ ] Verification
-- [ ] Decision memory projection
+- [x] PROJECT_MARGIN_RISK end-to-end
+- [x] Synthetic controlled dataset foundation
+- [x] Full audit trail
+- [x] Verification
+- [x] Decision memory projection
 
 ## Stage 7 — Abstraction validation
-- [ ] RESOURCE_CAPACITY_RISK
-- [ ] REVENUE_BILLING_LEAKAGE
-- [ ] Confirm Decision Core works without architectural change
+- [x] RESOURCE_CAPACITY_RISK
+- [x] REVENUE_BILLING_LEAKAGE
+- [x] Confirm Decision Core works without architectural change
+
+### Current status
+
+**Stage 7 complete. Stage 8 Decision Memory implementation is complete and gated PASS.**
+
+## Stage 8 — Decision Memory
+- [x] Source-of-truth model
+- [x] Projection consistency model
+- [x] Projection event/update contract
+- [x] Tenant isolation
+- [x] Idempotent projection updates
+- [x] Rebuild/reconciliation semantics
+- [x] Decision history query contract
+- [x] PostgreSQL projection implementation
+- [x] API query surface
+- [x] Projection failure/lag verification
+- [x] CI verification
+
+### Current work
+
+**Decision Memory Design Gate: PASS.**
+
+Evidence: gate closed in commit 3ecc8e8409fc0b368428297b57745cb6264e0786; CI Run #762 (37155367148) passed on Python 3.12 and 3.13 with PostgreSQL migration lifecycle, alembic check, and full pytest.
 
 ## Explicitly deferred
 - AI agents
@@ -74,3 +97,4 @@
 - Microservices
 - Full event sourcing
 - Autonomous approval/execution
+- Vector/embedding memory
