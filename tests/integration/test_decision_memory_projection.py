@@ -90,6 +90,7 @@ def test_projector_reads_authoritative_state_and_is_tenant_scoped(session: Sessi
     projection = session.scalar(select(DecisionMemoryProjectionModel).where(DecisionMemoryProjectionModel.tenant_id == tenant_id, DecisionMemoryProjectionModel.case_id == case.id))
 
     assert snapshot.authoritative_version == case.version
+    assert snapshot.state == "CURRENT"
     assert projection is not None
     assert projection.decision_id == decision.id
     assert projection.selected_option_ids == [str(option.id)]
@@ -98,9 +99,55 @@ def test_projector_reads_authoritative_state_and_is_tenant_scoped(session: Sessi
     assert projection.verification_summary["status"] == "PASS"
     assert str(evidence_id) in projection.source_ids["evidence_ids"]
     assert str(finding_id) in projection.source_ids["analysis_finding_ids"]
+    assert projection.notified_version == case.version
+    assert projection.projected_version == case.version
+    assert projection.last_projection_state == "CURRENT"
 
     with pytest.raises(ValueError, match="decision case not found"):
         SQLAlchemyDecisionMemoryProjector(session).project(tenant_id=other_tenant_id, case_id=case.id)
+
+
+def test_projection_marks_lag_when_notification_is_ahead_of_authoritative_state(session: Session):
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+    case = seed_case(session, tenant_id, status=CaseStatus.DETECTED, version=5)
+
+    snapshot = SQLAlchemyDecisionMemoryProjector(session).project(
+        tenant_id=tenant_id,
+        case_id=case.id,
+        notified_version=6,
+    )
+
+    projection = session.scalar(select(DecisionMemoryProjectionModel).where(
+        DecisionMemoryProjectionModel.tenant_id == tenant_id,
+        DecisionMemoryProjectionModel.case_id == case.id,
+    ))
+    assert projection is not None
+    assert snapshot.state == "STALE"
+    assert projection.notified_version == 6
+    assert projection.projected_version == 5
+    assert projection.authoritative_version == 5
+    assert projection.last_projection_state == "STALE"
+
+    case_model = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
+    assert case_model is not None
+    case_model.version = 6
+    session.commit()
+
+    refreshed = SQLAlchemyDecisionMemoryProjector(session).project(
+        tenant_id=tenant_id,
+        case_id=case.id,
+        notified_version=6,
+    )
+    assert refreshed.state == "CURRENT"
+    projection = session.scalar(select(DecisionMemoryProjectionModel).where(
+        DecisionMemoryProjectionModel.tenant_id == tenant_id,
+        DecisionMemoryProjectionModel.case_id == case.id,
+    ))
+    assert projection is not None
+    assert projection.notified_version == 6
+    assert projection.projected_version == 6
+    assert projection.last_projection_state == "CURRENT"
 
 
 def test_duplicate_and_out_of_order_notifications_are_harmless(session: Session):
@@ -120,12 +167,18 @@ def test_duplicate_and_out_of_order_notifications_are_harmless(session: Session)
     projection = session.scalar(select(DecisionMemoryProjectionModel).where(DecisionMemoryProjectionModel.tenant_id == tenant_id, DecisionMemoryProjectionModel.case_id == case.id))
     assert projection is not None
     assert projection.authoritative_version == 5
+    assert projection.projected_version == 5
+    assert projection.notified_version == 5
+    assert projection.last_projection_state == "CURRENT"
     assert projection.case_status == CaseStatus.CLOSED.value
 
     projector.project(tenant_id=tenant_id, case_id=case.id, notified_version=1)
     projection = session.scalar(select(DecisionMemoryProjectionModel).where(DecisionMemoryProjectionModel.tenant_id == tenant_id, DecisionMemoryProjectionModel.case_id == case.id))
     assert projection is not None
     assert projection.authoritative_version == 5
+    assert projection.projected_version == 5
+    assert projection.notified_version == 5
+    assert projection.last_projection_state == "CURRENT"
     assert projection.case_status == CaseStatus.CLOSED.value
 
 
@@ -163,3 +216,6 @@ def test_rebuild_reconstructs_current_authoritative_projection(session: Session)
     assert refreshed is not None
     assert refreshed.case_title == case.title
     assert refreshed.authoritative_version == 4
+    assert refreshed.projected_version == 4
+    assert refreshed.notified_version == 4
+    assert refreshed.last_projection_state == "CURRENT"
