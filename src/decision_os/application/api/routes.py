@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
@@ -488,5 +488,44 @@ def build_router(
                 "correlation_id": str(request.state.correlation_id),
             }
 
+    if decision_memory_reader is not None:
+        @router.get("/decision-cases/{case_id}/memory", status_code=200)
+        def get_decision_memory(
+            case_id: UUID,
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+        ) -> dict[str, object]:
+            view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
+            if view is None:
+                raise HTTPException(status_code=404, detail="decision memory not found")
+            return {
+                "data": {
+                    "case_id": str(view.case_id),
+                    "tenant_id": str(view.tenant_id),
+                    "case_type": view.case_type,
+                    "case_title": view.case_title,
+                    "case_status": view.case_status,
+                    "decision": {
+                        "id": str(view.decision_id) if view.decision_id else None,
+                        "status": view.decision_status,
+                        "rationale": view.rationale,
+                        "decided_by": str(view.decided_by) if view.decided_by else None,
+                        "selected_option_ids": [str(value) for value in view.selected_option_ids],
+                        "approval_required": view.approval_required,
+                    },
+                    "action": view.action_summary,
+                    "outcome": view.outcome_summary,
+                    "verification": view.verification_summary,
+                    "source_ids": view.source_ids,
+                    "projection": {
+                        "state": view.state,
+                        "authoritative_version": view.authoritative_version,
+                        "notified_version": view.notified_version,
+                        "projected_version": view.projected_version,
+                        "projected_at": view.projected_at.isoformat(),
+                    },
+                },
+                "correlation_id": str(request.state.correlation_id),
+            }
 
     return router
