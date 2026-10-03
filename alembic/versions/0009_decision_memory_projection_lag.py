@@ -1,12 +1,12 @@
 """add explicit decision memory projection lag metadata
 
-Revision ID: 0009_decision_memory_projection_lag
+Revision ID: 0009_decision_memory_lag
 Revises: 0008_decision_memory_projection
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0009_decision_memory_projection_lag"
+revision = "0009_decision_memory_lag"
 down_revision = "0008_decision_memory_projection"
 branch_labels = None
 depends_on = None
