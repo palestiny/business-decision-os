@@ -129,3 +129,42 @@ def test_decision_memory_read_api_enforces_tenant_isolation(session: Session):
     )
 
     assert response.status_code == 404
+
+
+def test_decision_history_api_uses_real_postgres_reader(session: Session):
+    tenant_id = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, tenant_id)
+    seed_case(session, tenant_id, case_id)
+    seed_projection(session, tenant_id, case_id)
+
+    response = build_client(session, tenant_id).get(
+        f"/api/v1/decision-cases/{case_id}/history"
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["case"]["id"] == str(case_id)
+    assert data["case"]["type"] == "PROJECT_MARGIN_RISK"
+    assert data["case"]["status"] == "CLOSED"
+    assert data["decision"]["status"] == "APPROVED"
+    assert data["action"]["status"] == "COMPLETED"
+    assert data["outcome"]["actual"]["observed_value"] == 90
+    assert data["verification"]["status"] == "PASS"
+    assert data["projection"]["state"] == "CURRENT"
+
+
+def test_decision_history_api_enforces_tenant_isolation(session: Session):
+    stored_tenant = uuid4()
+    requesting_tenant = uuid4()
+    case_id = uuid4()
+    seed_tenant(session, stored_tenant)
+    seed_tenant(session, requesting_tenant)
+    seed_case(session, stored_tenant, case_id)
+    seed_projection(session, stored_tenant, case_id)
+
+    response = build_client(session, requesting_tenant).get(
+        f"/api/v1/decision-cases/{case_id}/history"
+    )
+
+    assert response.status_code == 404
