@@ -113,3 +113,48 @@ def test_decision_history_is_tenant_scoped():
     )
 
     assert response.status_code == 404
+
+
+def test_decision_history_preserves_unverified_or_missing_outcome_context():
+    tenant_id = uuid4()
+    case_id = uuid4()
+    view = DecisionMemoryView(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        case_type="PROJECT_MARGIN_RISK",
+        case_title="Margin risk",
+        case_status="OPEN",
+        decision_id=None,
+        decision_status=None,
+        rationale=None,
+        decided_by=None,
+        selected_option_ids=(),
+        approval_required=None,
+        action_summary=None,
+        outcome_summary={"actual": {"observed_value": 88000}},
+        verification_summary={"status": "PENDING"},
+        source_ids={},
+        authoritative_version=7,
+        notified_version=7,
+        projected_version=7,
+        projected_at=datetime.now(timezone.utc),
+        state="CURRENT",
+    )
+    principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=tenant_id)
+
+    def principal_provider(request: Request):
+        return principal
+
+    app = create_app(
+        create_case_boundary=object(),
+        decision_memory_reader=FakeDecisionMemoryReader(view),
+        principal_provider=principal_provider,
+    )
+
+    response = TestClient(app).get(f"/api/v1/decision-cases/{case_id}/history")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["outcome"]["actual"]["observed_value"] == 88000
+    assert data["verification"]["status"] == "PENDING"
+    assert data["verification"]["status"] != "PASS"
