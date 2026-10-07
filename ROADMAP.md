@@ -90,6 +90,21 @@
 
 Evidence: gate closed in commit 3ecc8e8409fc0b368428297b57745cb6264e0786; CI Run #762 (37155367148) passed on Python 3.12 and 3.13 with PostgreSQL migration lifecycle, alembic check, and full pytest.
 
+## Stage 9 — Decision Learning & History
+- [x] Decision History query contract
+- [x] Coherent tenant-scoped history narrative
+- [x] Verified vs unverified outcome distinction
+- [x] PostgreSQL integration and tenant isolation
+- [x] Supported-Python CI verification
+- [x] Learning boundary kept read-only
+- [ ] Durable organizational Learning — deferred pending demonstrated business requirement
+
+### Current status
+
+**Stage 9 History slice complete and gated PASS. Durable Learning is intentionally deferred.**
+
+Evidence: CI Run #776 (`37617676754`) passed after the verified/unverified outcome coverage. History implementation is based on Decision Memory and does not introduce a second transactional decision model.
+
 ## Explicitly deferred
 - AI agents
 - Native ERP integrations
