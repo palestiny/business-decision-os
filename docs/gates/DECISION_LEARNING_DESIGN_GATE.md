@@ -2,7 +2,7 @@
 
 ## Status
 
-**DESIGN-LOCKED — scope and architectural direction selected; implementation not started.**
+**PASS — Decision History implemented and verified; durable Learning explicitly deferred pending a demonstrated business requirement.**
 
 ## Purpose
 
@@ -105,8 +105,29 @@ Before closing this gate, implementation must prove:
 7. Run full CI.
 8. Close the gate only after all acceptance criteria are evidenced.
 
+## Verification evidence
+
+### Decision History implementation
+- TDD RED history contract: commit `ec131913e997c5608100923410540323f6bd98c1`.
+- History API implementation reuses the tenant-scoped Decision Memory reader; no second transactional decision model was introduced: commit `8378b2f2eaadc96bee8d02e1708b13d7d95b71d2`.
+- Supported-Python CI passed after the implementation: CI Run #772.
+- PostgreSQL integration coverage verifies the real reader/API path and tenant isolation: commit `1184749599a1b76a31f8f45d45aca8e9f25a108c`, CI Run #774.
+- Verified versus unverified/missing outcome context is explicitly preserved: commit `f5a0eadd2cbdab2c0438adb1914cd8e6e46e997d`.
+- Latest CI for the verification test passed: CI Run #776 (`37617676754`).
+
+### Learning boundary decision
+No durable Learning record was introduced because the implemented history contract does not demonstrate a concrete requirement for persisted organizational learning yet. This is intentional and follows the gate's implementation order.
+
+Therefore:
+- historical facts remain sourced from Decision Core / Decision Memory and the History API exposes them read-only;
+- there is no Learning persistence path capable of mutating historical facts;
+- there is no recommendation or learning authority path;
+- durable learning traceability is **N/A for this implementation slice**, rather than being satisfied by an artificial learning model.
+
+The next Learning implementation requires a concrete business use case that demonstrates why a durable learning record is necessary. It must reopen this gate's learning criteria before persistence is added.
+
 ## Gate decision
 
-**DESIGN-LOCKED.**
+**PASS — History slice closed.**
 
-No implementation should begin beyond the agreed first RED tests until the history contract is reviewed against the existing Decision Memory API and Decision Core lifecycle.
+Decision History is verified and may serve as the controlled historical query surface. Durable organizational Learning remains explicitly deferred and must not be introduced merely to increase Stage 9 feature count.
