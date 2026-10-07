@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.ports.decision_memory import DecisionMemoryReader
+from decision_os.application.ports.decision_work_queue import DecisionWorkQueueReader
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
@@ -164,6 +165,7 @@ def build_router(
     add_analysis_finding_boundary: AddAnalysisFindingReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
     decision_memory_reader: DecisionMemoryReader | None = None,
+    decision_work_queue_reader: DecisionWorkQueueReader | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
@@ -566,6 +568,32 @@ def build_router(
                         "projected_at": view.projected_at.isoformat(),
                     },
                 },
+                "correlation_id": str(request.state.correlation_id),
+            }
+
+    if decision_work_queue_reader is not None:
+        @router.get("/decision-work-queue", status_code=200)
+        def get_decision_work_queue(
+            request: Request,
+            principal: AuthenticatedPrincipal = Depends(principal_provider),
+        ) -> dict[str, object]:
+            items = decision_work_queue_reader.list(tenant_id=principal.tenant_id)
+            return {
+                "data": [
+                    {
+                        "case_id": str(item.case_id),
+                        "case_type": item.case_type,
+                        "title": item.title,
+                        "case_status": item.case_status,
+                        "attention_state": item.attention_state,
+                        "decision_id": str(item.decision_id) if item.decision_id else None,
+                        "decision_status": item.decision_status,
+                        "approval_required": item.approval_required,
+                        "authoritative_version": item.authoritative_version,
+                        "projection_state": item.projection_state,
+                    }
+                    for item in items
+                ],
                 "correlation_id": str(request.state.correlation_id),
             }
 
