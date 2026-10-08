@@ -4,7 +4,8 @@ The issuer, audience, JWKS endpoint, and claim mapping are deployment configurat
 External identity-to-internal UUID mapping is delegated to an explicit resolver.
 """
 from dataclasses import dataclass
-from typing import Protocol
+import os
+from typing import Mapping, Protocol
 from uuid import UUID
 
 import jwt
@@ -59,6 +60,32 @@ class OIDCJWTPrincipalProvider:
         self._tenant_claim = tenant_claim
         self._resolver = resolver
         self._clock_skew_seconds = clock_skew_seconds
+
+    @classmethod
+    def from_environment(
+        cls,
+        *,
+        resolver: ExternalIdentityResolver,
+        environ: Mapping[str, str] | None = None,
+    ) -> "OIDCJWTPrincipalProvider":
+        """Build from explicit deployment environment; never guess identity settings."""
+        values = os.environ if environ is None else environ
+        required = ("OIDC_ISSUER", "OIDC_AUDIENCE", "OIDC_JWKS_URL", "OIDC_TENANT_CLAIM")
+        missing = [name for name in required if not values.get(name, "").strip()]
+        if missing:
+            raise RuntimeError("Missing required OIDC configuration: " + ", ".join(missing))
+        try:
+            clock_skew_seconds = int(values.get("OIDC_CLOCK_SKEW_SECONDS", "30"))
+        except ValueError as exc:
+            raise RuntimeError("OIDC_CLOCK_SKEW_SECONDS must be an integer") from exc
+        return cls(
+            issuer=values["OIDC_ISSUER"],
+            audience=values["OIDC_AUDIENCE"],
+            jwks_url=values["OIDC_JWKS_URL"],
+            tenant_claim=values["OIDC_TENANT_CLAIM"],
+            resolver=resolver,
+            clock_skew_seconds=clock_skew_seconds,
+        )
 
     def __call__(self, request: Request) -> AuthenticatedPrincipal:
         authorization = request.headers.get("Authorization", "")
