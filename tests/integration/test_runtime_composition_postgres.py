@@ -4,12 +4,13 @@ from uuid import uuid4
 import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.application.api.runtime import build_runtime_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.ports.authority import Permission
+from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 
 DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
@@ -75,5 +76,53 @@ def test_runtime_create_case_is_visible_in_tenant_work_queue():
             other_queue = other_client.get("/api/v1/decision-work-queue")
             assert other_queue.status_code == 200, other_queue.text
             assert all(item["case_id"] != case_id for item in other_queue.json()["data"])
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_rolls_back_case_when_outbox_write_fails(monkeypatch):
+    from decision_os.infrastructure.persistence.repositories.reliability import SQLAlchemyOutboxRepository
+
+    tenant_id, actor_id = uuid4(), uuid4()
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    seed_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    title = f"Rollback verification {uuid4()}"
+
+    try:
+        with seed_factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-rollback-{tenant_id}"))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        def fail_outbox_add(self, message):
+            raise RuntimeError("injected outbox failure for rollback verification")
+
+        monkeypatch.setattr(SQLAlchemyOutboxRepository, "add", fail_outbox_add)
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                "/api/v1/decision-cases",
+                headers={"Idempotency-Key": f"runtime-rollback-{uuid4()}"},
+                json={"case_type": "PROJECT_MARGIN_RISK", "title": title},
+            )
+            assert response.status_code == 500, response.text
+
+        with seed_factory() as session:
+            persisted = session.scalar(
+                select(DecisionCaseModel).where(
+                    DecisionCaseModel.tenant_id == tenant_id,
+                    DecisionCaseModel.title == title,
+                )
+            )
+            assert persisted is None, "case must roll back when the outbox write fails"
     finally:
         engine.dispose()
