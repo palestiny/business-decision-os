@@ -2,9 +2,9 @@
 
 ## Status
 
-**OPEN — DECISION REQUIRED BEFORE A DATABASE-BACKED AUTHORIZATION ADAPTER IS IMPLEMENTED.**
+**IMPLEMENTED — INITIAL TENANT-SCOPED RBAC SLICE AWAITS CI AND OPERATIONAL-POLICY CLOSURE.**
 
-OIDC/JWT authenticates a principal and the external identity mapping resolves internal actor/tenant UUIDs. Authentication alone does not establish what the actor may do. The runtime currently accepts an injected `AuthorizationPort`; no production authorization implementation or actor/membership model is selected.
+The product owner approved Option B. The implementation now includes actor lifecycle, tenant memberships, role/permission grants, membership-scoped role assignments, and a fail-closed SQLAlchemy adapter. Runtime composition uses this adapter by default while allowing an explicit replacement. Migration 0011 backfills actor rows but deliberately creates no memberships or role assignments.
 
 ## Non-negotiable invariants
 
@@ -37,13 +37,15 @@ OIDC/JWT authenticates a principal and the external identity mapping resolves in
 7. Seed/provisioning is an explicit trusted administrative operation. No default allow-all role and no self-service privilege escalation.
 8. Permission/role changes must be auditable. Cache decisions only after a revocation/expiry strategy is explicitly designed; initial adapter should query the authoritative store.
 
-## Open decisions for product owner
+## Implemented initial role matrix
 
-- Confirm Option B, or choose A if an external authorization service is already intended.
-- Initial role set and permission matrix (suggested starting point: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer).
-- Whether approver must be distinct from decision author for selected case types (separation of duties).
-- Trusted tenant/membership provisioning process for the first deployment.
-- Whether permissions vary by case type or remain tenant-wide for the first vertical slice.
+- `tenant_admin`: all current command permissions; highly privileged and must only be assigned through a trusted administrative process.
+- `decision_author`: create/triage cases, start analysis, submit options, await decision, create evidence, and add analysis.
+- `approver`: make, approve, or reject decisions.
+- `operator`: create/start actions, update/reconcile execution, create/verify outcomes.
+- `read_only_reviewer`: no command permissions; read APIs keep their own tenant-scoped query contracts.
+
+The initial permissions are tenant-wide. Role separation does not yet prevent the same actor from holding author and approver roles or approving their own case.
 
 ## Acceptance criteria
 
@@ -53,7 +55,8 @@ OIDC/JWT authenticates a principal and the external identity mapping resolves in
 - Cross-tenant resource IDs do not pass authorization.
 - Explicit allow cases and deny-by-default cases have unit and PostgreSQL integration coverage.
 - CI passes on Python 3.12 and 3.13.
-- Runtime composition requires a real authorization adapter; no production allow-all implementation.
+- Runtime composition defaults to the database-backed adapter and never grants by default.
+- Trusted provisioning, durable authorization/role-change audit, separation-of-duties rules, and PostgreSQL verification are completed before PASS.
 
 ## Dependencies
 

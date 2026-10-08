@@ -1,7 +1,7 @@
 # CHECKPOINT-038 — Runtime Composition First Slice
 
 ## Status
-**First runtime slice implemented and verified in CI; runtime composition gate remains open.**
+**Runtime composition and OIDC wiring are CI-verified; tenant-scoped RBAC is implemented in code and awaiting verification. Runtime gate remains open.**
 
 ## Delivered
 - Added a runtime composition root that requires an explicit database URL, authorization adapter, and authenticated PrincipalProvider.
@@ -22,12 +22,19 @@
 - Runtime composition now automatically builds the configured OIDC provider and database resolver when no provider is injected; missing OIDC environment configuration fails startup and disposes the engine. Added unit and PostgreSQL HTTP tests for invalid-signature and valid-but-unmapped tokens. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit `6a136b38bb4218e39742cfa8063c3050bc8ba705`; both jobs report 174 passed tests, and migration upgrade/downgrade/upgrade plus `alembic check` passed.
 - Initial OIDC adapter suite passed CI #890/#891 on Python 3.12 and 3.13: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
 
+## Tenant-scoped RBAC implementation added (pending CI)
+- Added actor lifecycle, unique actor/tenant memberships, role catalog, role permissions, and membership-scoped role assignments.
+- Migration `0011_tenant_scoped_rbac` backfills actors for existing identity mappings and deliberately creates no memberships or role assignments.
+- Added fail-closed `SQLAlchemyAuthorizationAdapter`; runtime uses it by default while allowing explicit adapter injection.
+- Initial roles: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer. Unit tests cover grants, wrong tenant, missing permissions, inactive records, and policy-store failure.
+
 ## Remaining before gate closure
-1. Configure the deployment issuer, audience, JWKS URL, and tenant claim; these values are not selected or available yet.
-2. Decide and implement the authorization/membership model described in `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`.
-3. Establish a trusted provisioning workflow for external identity mappings and memberships.
-4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
-5. Add product-facing queue usability and operator workflow validation.
+1. Verify migration upgrade/downgrade/upgrade, `alembic check`, and RBAC tests in CI on Python 3.12/3.13.
+2. Establish trusted provisioning for identity mappings, memberships, and role assignments; no public provisioning endpoint exists.
+3. Decide durable authorization audit and separation-of-duties rules, including whether an author may approve the same case.
+4. Configure deployment OIDC issuer, audience, JWKS URL, and tenant claim.
+5. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
+6. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified; deployment authentication remains incomplete until actual deployment configuration and trusted provisioning/authorization policy are selected.
+Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified. RBAC is implemented but its new CI run is pending; do not claim production readiness until RBAC verification, trusted provisioning, authorization auditing, separation-of-duties, and deployment configuration are complete.
