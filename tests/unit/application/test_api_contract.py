@@ -58,6 +58,36 @@ def test_create_case_maps_authenticated_identity_and_returns_stable_response():
     assert boundary.calls[0][1] == "create-001"
 
 
+def test_create_case_ignores_client_supplied_identity_headers():
+    boundary = Boundary()
+    trusted_actor_id = uuid4()
+    trusted_tenant_id = uuid4()
+    app = create_app(create_case_boundary=boundary)
+
+    @app.middleware("http")
+    async def fake_auth(request, call_next):
+        request.state.principal = AuthenticatedPrincipal(
+            actor_id=trusted_actor_id,
+            tenant_id=trusted_tenant_id,
+        )
+        return await call_next(request)
+
+    response = TestClient(app).post(
+        "/api/v1/decision-cases",
+        headers={
+            "Idempotency-Key": "identity-spoof-001",
+            "X-Tenant-ID": str(uuid4()),
+            "X-Actor-ID": str(uuid4()),
+        },
+        json={"case_type": "PROJECT_MARGIN_RISK", "title": "Identity spoof check"},
+    )
+
+    assert response.status_code == 201
+    command = boundary.calls[0][0]
+    assert command.tenant_id == trusted_tenant_id
+    assert command.actor_id == trusted_actor_id
+
+
 def test_create_case_requires_idempotency_key():
     client = client_with(Boundary())
     response = client.post(
