@@ -8,8 +8,10 @@ Define the production composition boundary for the existing Decision Core API be
 
 - The API factory accepts already-constructed command boundaries and readers.
 - Persistence adapters currently hold SQLAlchemy Session instances.
-- Integration tests manually assemble adapters around a test Session.
-- No production composition root currently exists.
+- A runtime composition root now builds an Engine and Session factory, composes the create-case command boundary, and provides a session-factory-backed work-queue reader.
+- The create-case UnitOfWork, idempotency, audit, and outbox adapters share one use-case-scoped Session.
+- The queue reader opens and closes a Session per query.
+- The runtime requires an explicit database URL, authorization adapter, and PrincipalProvider; it does not invent authentication or an allow-all policy.
 - Authentication is delegated to an explicitly injected PrincipalProvider; the default provider rejects requests without an authenticated principal.
 
 ## Decisions
@@ -23,14 +25,19 @@ Define the production composition boundary for the existing Decision Core API be
 7. The runtime must advertise only routes whose command boundaries are actually composed. Optional boundaries must not be replaced with placeholder objects.
 8. The API factory remains usable for isolated tests with explicitly injected boundaries.
 
-## Implementation sequence
+## Implementation and verification
 
-1. Add failing tests for distinct Sessions across requests, closure after success/failure, and no cross-request transaction sharing.
-2. Introduce a composition/provider seam so route handlers obtain a boundary built for the request Session rather than capturing one Session-backed boundary at app construction time.
-3. Compose create-case and work-queue first as the smallest useful runtime slice.
-4. Add PostgreSQL HTTP integration coverage: POST a case, then GET the work queue for the same tenant and confirm visibility; verify another tenant cannot see it.
-5. Run existing idempotency, audit, outbox, optimistic concurrency, tenant-isolation, and API contract suites.
-6. Only after CI passes, mark the gate PASS and expand runtime composition to other commands.
+- [x] Add an explicit runtime composition root for the create-case command and work queue.
+- [x] Require database URL, authorization adapter, and PrincipalProvider; fail fast when required dependencies are missing.
+- [x] Scope command persistence adapters to one Session per execution.
+- [x] Scope the work-queue reader to one Session per query and verify cleanup on query failure.
+- [x] PostgreSQL HTTP integration: create a case, then query it in the same tenant's work queue.
+- [x] PostgreSQL HTTP integration: verify a second tenant cannot see the first tenant's case.
+- [x] Supported-Python CI passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f` (Runs #844 and #845).
+- [ ] Verify overlapping command requests use distinct Sessions and transactions.
+- [ ] Verify runtime command rollback and cleanup on exceptional paths using PostgreSQL integration tests.
+- [ ] Decide and implement the deployment authentication adapter/configuration; injected test providers are not production authentication.
+- [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
 ## Acceptance criteria
 
@@ -44,4 +51,4 @@ Define the production composition boundary for the existing Decision Core API be
 
 ## Status
 
-DESIGN DEFINED — implementation and verification pending. This is not a deployment-readiness claim.
+**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition and same-tenant/cross-tenant HTTP integration checks pass in CI on Python 3.12 and 3.13. Session concurrency, runtime rollback behavior, production authentication configuration, and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
