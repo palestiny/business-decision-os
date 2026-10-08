@@ -67,14 +67,9 @@
 - [x] REVENUE_BILLING_LEAKAGE
 - [x] Confirm Decision Core works without architectural change
 
-### Current status
-
-**Stage 7 complete. Stage 8 Decision Memory implementation is complete and gated PASS.**
-
 ## Stage 8 — Decision Memory
 - [x] Source-of-truth model
 - [x] Projection consistency model
-- [x] Projection event/update contract
 - [x] Tenant isolation
 - [x] Idempotent projection updates
 - [x] Rebuild/reconciliation semantics
@@ -84,11 +79,7 @@
 - [x] Projection failure/lag verification
 - [x] CI verification
 
-### Current work
-
-**Decision Memory Design Gate: PASS.**
-
-Evidence: gate closed in commit 3ecc8e8409fc0b368428297b57745cb6264e0786; CI Run #762 (37155367148) passed on Python 3.12 and 3.13 with PostgreSQL migration lifecycle, alembic check, and full pytest.
+**Status: PASS.** Evidence: gate closed in commit `3ecc8e8409fc0b368428297b57745cb6264e0786`; CI Run #762 passed on Python 3.12/3.13 with PostgreSQL migration lifecycle, Alembic check, and full pytest.
 
 ## Stage 9 — Decision Learning & History
 - [x] Decision History query contract
@@ -99,17 +90,28 @@ Evidence: gate closed in commit 3ecc8e8409fc0b368428297b57745cb6264e0786; CI Run
 - [x] Learning boundary kept read-only
 - [ ] Durable organizational Learning — deferred pending demonstrated business requirement
 
-### Current status
+**Status: History slice PASS; durable Learning intentionally deferred.** Evidence: CI Run #776 (`37617676754`).
 
-**Stage 9 History slice complete and gated PASS. Durable Learning is intentionally deferred.**
+## Stage 10 — Human Decision Workflow
+- [x] Read-only tenant-scoped work queue port
+- [x] PostgreSQL-backed reader using authoritative case/decision/action state
+- [x] Explicit attention classification
+- [x] Deterministic priority and stable tie-break ordering
+- [x] API endpoint `GET /api/v1/decision-work-queue`
+- [x] Unit tests for mapping and ordering
+- [x] PostgreSQL integration coverage for tenant isolation and ready-action eligibility
+- [x] CI verification — Run #806
+- [ ] Deployment composition root / request-scoped database reader wiring — deferred until runtime entry point is introduced
+- [ ] Product-facing queue usability and operator workflow — next product slice
 
-Evidence: CI Run #776 (`37617676754`) passed after the verified/unverified outcome coverage. History implementation is based on Decision Memory and does not introduce a second transactional decision model.
+**Status: Stage 10 read-only queue slice PASS; runtime composition remains an explicit follow-up.** Evidence: commit `870995158a1fae799241408cf39b95bae52e2e49`, CI Run #806: https://github.com/palestiny/business-decision-os/actions/runs/37850119985
 
 ## Explicitly deferred
-- AI agents
+- AI agents and AI authority
 - Native ERP integrations
 - Graph database
 - Microservices
 - Full event sourcing
 - Autonomous approval/execution
 - Vector/embedding memory
+- Durable organizational Learning until justified by demonstrated requirements
