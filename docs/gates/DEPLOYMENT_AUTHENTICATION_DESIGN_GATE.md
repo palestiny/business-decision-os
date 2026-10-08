@@ -42,7 +42,8 @@
 - [x] Add an OIDC/JWT PrincipalProvider adapter with explicit issuer, audience, JWKS URL, tenant-claim name, and external identity resolver.
 - [x] Restrict token verification to RS256 and validate signature, issuer, audience, expiry, issued-at, and required subject/tenant claims; reject missing bearer credentials and unmapped identities.
 - [x] Keep external subject/tenant keys separate from internal UUIDs through an explicit resolver contract.
-- [x] Add unit tests for valid identity mapping, missing/non-bearer credentials, wrong issuer/audience, expired tokens, missing claims, unknown identity mapping, and invalid signatures.
+- [x] Add unit tests for valid identity mapping, missing/non-bearer credentials, wrong issuer/audience, expired tokens, missing claims, unknown identity mapping, and invalid signatures (initial suite passed CI #890/#891).
+- [x] Add fail-fast environment factory for `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, and `OIDC_TENANT_CLAIM`; optional `OIDC_CLOCK_SKEW_SECONDS` is bounded to 0–120 seconds.
 - [x] Confirm the new adapter test suite in CI on Python 3.12 and 3.13 — Runs #890/#891 passed for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`.
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
 - [ ] Implement and test a production-grade external identity resolver backed by the chosen identity/tenant model.
