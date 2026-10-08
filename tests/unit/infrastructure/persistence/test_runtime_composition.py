@@ -68,3 +68,17 @@ def test_create_case_boundary_uses_one_session_for_uow_and_reliability_adapters(
     assert calls[6] == ("handler", calls[2][1], authorization)
     assert calls[8][2] == "request-1"
     assert calls[-1] == ("exit", None)
+
+def test_runtime_refuses_to_start_without_database_url():
+    from decision_os.application.api.runtime import build_runtime_app
+
+    try:
+        build_runtime_app(
+            database_url=None,
+            authorization=object(),
+            principal_provider=lambda request: None,
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "SQLALCHEMY_DATABASE_URL is required to start the Decision OS runtime"
+    else:
+        raise AssertionError("runtime should fail fast without a database URL")
