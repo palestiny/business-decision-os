@@ -23,10 +23,11 @@
 - Initial OIDC adapter suite passed CI #890/#891 on Python 3.12 and 3.13: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
 
 ## Remaining before gate closure
-1. Verify PostgreSQL migration/resolver integration and runtime OIDC HTTP rejection tests in CI on Python 3.12/3.13.
-2. Configure the deployment issuer, audience, JWKS URL, and tenant claim; these values are not selected or available yet.
+1. Configure the deployment issuer, audience, JWKS URL, and tenant claim; these values are not selected or available yet.
+2. Decide and implement the authorization/membership model described in `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`.
+3. Establish a trusted provisioning workflow for external identity mappings and memberships.
 4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
 5. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice is CI-verified; deployment authentication remains incomplete until actual deployment configuration and trusted provisioning/authorization policy are selected.
+Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified; deployment authentication remains incomplete until actual deployment configuration and trusted provisioning/authorization policy are selected.
