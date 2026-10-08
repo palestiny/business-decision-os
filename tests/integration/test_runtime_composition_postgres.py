@@ -25,12 +25,15 @@ class AllowCreateCase:
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
-    tenant_id, actor_id = uuid4(), uuid4()
+    tenant_id, actor_id, other_tenant_id, other_actor_id = uuid4(), uuid4(), uuid4(), uuid4()
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     seed_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
     try:
         with seed_factory() as session:
-            session.add(TenantModel(id=tenant_id, name=f"runtime-{tenant_id}"))
+            session.add_all([
+                TenantModel(id=tenant_id, name=f"runtime-{tenant_id}"),
+                TenantModel(id=other_tenant_id, name=f"runtime-{other_tenant_id}"),
+            ])
             session.commit()
 
         principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
@@ -57,5 +60,20 @@ def test_runtime_create_case_is_visible_in_tenant_work_queue():
             matches = [item for item in queue.json()["data"] if item["case_id"] == case_id]
             assert len(matches) == 1
             assert matches[0]["attention_state"] == "REVIEW_CASE"
+
+        other_principal = AuthenticatedPrincipal(actor_id=other_actor_id, tenant_id=other_tenant_id)
+
+        def other_principal_provider(request: Request):
+            return other_principal
+
+        other_app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=other_principal_provider,
+        )
+        with TestClient(other_app) as other_client:
+            other_queue = other_client.get("/api/v1/decision-work-queue")
+            assert other_queue.status_code == 200, other_queue.text
+            assert all(item["case_id"] != case_id for item in other_queue.json()["data"])
     finally:
         engine.dispose()
