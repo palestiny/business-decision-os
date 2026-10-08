@@ -1,33 +1,28 @@
-# CHECKPOINT-038 — Runtime Composition Design
+# CHECKPOINT-038 — Runtime Composition First Slice
 
 ## Status
-**Runtime composition design documented; implementation not started.**
+**First runtime slice implemented and verified in CI; runtime composition gate remains open.**
 
-## Why this checkpoint exists
-The Stage 10 API can accept a prebuilt Decision Work Queue reader, but the repository has no production composition root. Existing persistence components retain concrete SQLAlchemy Session instances, so constructing them once and sharing them across requests would create unsafe request/transaction lifecycle coupling.
+## Delivered
+- Added a runtime composition root that requires an explicit database URL, authorization adapter, and authenticated PrincipalProvider.
+- Engine and Session factory are process-scoped; each create-case execution uses a short-lived Session.
+- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case are composed over the same Session.
+- The work-queue reader creates and closes a Session per query, including exceptional query exit.
+- PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue.
+- A second tenant's queue is verified not to expose that case.
+- CI Runs #844 and #845 passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f`.
 
-## Design decisions
-- Process-scoped Engine and Session factory; never a process-global Session.
-- A request/use-case-scoped Session for each command execution.
-- The UnitOfWork, repositories, idempotency, audit, and outbox adapters for one command share that command's Session/transaction.
-- Read adapters must not retain a Session beyond their query request.
-- Database URL is required; startup fails clearly when missing.
-- Runtime authentication must be explicitly configured. Tenant and actor identities must never be hard-coded.
-- Dispose the Engine during application shutdown.
-- Only compose and expose routes with real implementations.
+## Verification evidence
+- CI #844: https://github.com/palestiny/business-decision-os/actions/runs/37853330867
+- CI #845: https://github.com/palestiny/business-decision-os/actions/runs/37853337025
+- Runtime composition gate: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`
 
-## Verification plan
-1. RED tests for session uniqueness across requests and cleanup after success/failure.
-2. Add a provider/composition seam so route handlers get request-scoped boundaries.
-3. Compose create-case and work queue as the first runtime slice.
-4. PostgreSQL HTTP integration: create a case, query it in the same tenant's queue, and prove cross-tenant isolation.
-5. Run idempotency, audit, outbox, optimistic-concurrency, API contract, and tenant-isolation suites.
-6. Close the gate only after supported-Python CI is green.
+## Remaining before gate closure
+1. Add PostgreSQL-backed tests for overlapping requests and distinct Sessions/transactions.
+2. Verify command rollback and cleanup behavior on exceptional paths.
+3. Configure a real deployment authentication provider; tests currently inject a controlled principal and authorization adapter.
+4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
+5. Run the full CI matrix again after these changes.
 
-## Links
-- Design gate: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`
-- Roadmap: `ROADMAP.md`
-- Last verified queue slice: CI Run #806, https://github.com/palestiny/business-decision-os/actions/runs/37850119985
-
-## Next step
-Begin test-first implementation of request-scoped composition. No deployment-readiness claim is made by this checkpoint.
+## Decision
+Do not label this production-ready and do not mark the runtime gate PASS yet. The first slice is verified, but concurrent request isolation and deployable authentication are not yet established.
