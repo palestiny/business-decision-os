@@ -107,7 +107,8 @@
 - [x] PostgreSQL HTTP create-case → same-tenant queue visibility
 - [x] PostgreSQL HTTP cross-tenant queue isolation
 - [x] Runtime composition slice CI on Python 3.12 and 3.13 — Runs #844/#845
-- [ ] Concurrent request isolation (distinct Sessions/transactions)
+- [x] Unit-level concurrent command isolation (distinct Sessions and cleanup; CI #854/#855)
+- [ ] PostgreSQL-backed concurrent HTTP request/transaction isolation
 - [ ] PostgreSQL command rollback/error-path verification
 - [ ] Deployable authentication provider and deployment configuration
 - [ ] Compose additional command routes after lifecycle/authorization review
