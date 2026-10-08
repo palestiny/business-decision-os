@@ -505,10 +505,6 @@ def build_router(
                 actor_id=principal.actor_id, tenant_id=principal.tenant_id,
                 permission=Permission.VIEW_DECISION_HISTORY, resource_id=case_id,
             )
-            authorization.require(
-                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
-                permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id,
-            )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
             if view is None:
                 raise HTTPException(status_code=404, detail="decision history not found")
@@ -550,6 +546,10 @@ def build_router(
             request: Request,
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
+            authorization.require(
+                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id,
+            )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
             if view is None:
                 raise HTTPException(status_code=404, detail="decision memory not found")
