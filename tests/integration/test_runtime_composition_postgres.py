@@ -1,4 +1,6 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -124,5 +126,68 @@ def test_runtime_rolls_back_case_when_outbox_write_fails(monkeypatch):
                 )
             )
             assert persisted is None, "case must roll back when the outbox write fails"
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_handles_overlapping_http_commands_with_independent_transactions(monkeypatch):
+    from decision_os.infrastructure.persistence.repositories.reliability import SQLAlchemyOutboxRepository
+
+    tenant_id, actor_id = uuid4(), uuid4()
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    seed_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    rendezvous = Barrier(2)
+    titles = [f"Concurrent HTTP case {uuid4()}" for _ in range(2)]
+
+    try:
+        with seed_factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-concurrent-{tenant_id}"))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        original_add = SQLAlchemyOutboxRepository.add
+
+        def synchronized_add(self, message):
+            # Keep both command transactions in-flight together so the test exercises
+            # overlapping HTTP requests rather than merely sequential requests.
+            rendezvous.wait(timeout=10)
+            return original_add(self, message)
+
+        monkeypatch.setattr(SQLAlchemyOutboxRepository, "add", synchronized_add)
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+
+        with TestClient(app) as client:
+            def create_case(index: int):
+                return client.post(
+                    "/api/v1/decision-cases",
+                    headers={"Idempotency-Key": f"runtime-concurrent-{uuid4()}"},
+                    json={"case_type": "PROJECT_MARGIN_RISK", "title": titles[index]},
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(create_case, index) for index in range(2)]
+                responses = [future.result(timeout=20) for future in futures]
+
+        assert [response.status_code for response in responses] == [201, 201], [
+            response.text for response in responses
+        ]
+
+        with seed_factory() as session:
+            persisted = session.scalars(
+                select(DecisionCaseModel).where(
+                    DecisionCaseModel.tenant_id == tenant_id,
+                    DecisionCaseModel.title.in_(titles),
+                )
+            ).all()
+            assert {case.title for case in persisted} == set(titles)
     finally:
         engine.dispose()
