@@ -109,7 +109,7 @@
 - [x] Runtime composition slice CI on Python 3.12 and 3.13 — Runs #844/#845
 - [x] Unit-level concurrent command isolation (distinct Sessions and cleanup; CI #854/#855)
 - [ ] PostgreSQL-backed concurrent HTTP request/transaction isolation
-- [ ] PostgreSQL command rollback/error-path verification
+- [x] PostgreSQL rollback verification when Outbox write fails (CI #862/#863)
 - [ ] Deployable authentication provider and deployment configuration
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
