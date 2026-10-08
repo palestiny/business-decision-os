@@ -1,12 +1,13 @@
 # Deployment Authentication Design Gate
 
 ## Status
-**OIDC/JWT ADAPTER IMPLEMENTED — DEPLOYMENT IDENTITY MAPPING AND CI VERIFICATION REMAIN OPEN.** The provider validates configured RS256 bearer tokens and delegates verified external identity mapping; it is not yet a complete deployment configuration.
+**OIDC/JWT ADAPTER AND PERSISTED IDENTITY RESOLVER IMPLEMENTED — RUNTIME WIRING AND DEPLOYMENT CONFIGURATION REMAIN OPEN.** The provider validates configured RS256 bearer tokens and delegates verified identity mapping to a server-managed database mapping. It is not yet a complete deployment configuration.
 
 ## Security invariants
 - Requests without valid authenticated identity fail closed.
 - Actor identity is derived from a verified identity, never from a request body or arbitrary header.
-- Tenant identity comes from a verified, trusted identity claim or a server-side identity-to-tenant mapping. A client-supplied tenant ID is never authoritative.
+- Tenant identity is selected through an exact server-managed mapping for the verified issuer, subject, and configured tenant claim. Client-supplied tenant IDs are never authoritative.
+- Identity mappings are provisioned by trusted administrative/deployment processes; a token or request cannot create or alter mappings.
 - Authentication and authorization remain separate: a valid identity does not automatically grant Decision Core permissions.
 - Test PrincipalProviders are only for tests; they must not be used as production defaults.
 - Invalid, expired, wrong-issuer, wrong-audience, malformed, or unverifiable credentials are rejected.
@@ -31,23 +32,31 @@
 7. Add API tests proving spoofed tenant headers/body fields cannot change tenant scope, plus tenant-isolation tests using distinct verified principals.
 8. Document secret/configuration handling and deployment network boundaries.
 
-## Decisions still required before implementation
+## Decisions still required
 - Identity provider and issuer URL.
 - Expected audience/resource identifier.
 - Which verified claim or server-side mapping identifies the tenant.
-- Which verified subject maps to the internal actor UUID.
 - Whether this first deployment is public SaaS or behind a private trusted proxy.
+- Trusted provisioning workflow and administration controls for mapping rows.
+
+## Identity mapping contract
+- external_identity_mappings uniquely maps the tuple (issuer, subject, tenant_key) to internal actor_id and tenant_id.
+- tenant_id references an existing tenant with restrictive delete behavior.
+- Only is_active = true mappings resolve; inactive, unknown, and mismatched identities fail closed.
+- Mapping writes are intentionally not exposed through public application routes. They must be provisioned through a trusted administrative/database migration process.
+- actor_id is an opaque internal UUID at this stage; a normalized actor/user and membership model is not yet present. Do not treat this mapping table as a substitute for authorization or tenant membership policy.
 
 ## Implementation status
-- [x] Add an OIDC/JWT PrincipalProvider adapter with explicit issuer, audience, JWKS URL, tenant-claim name, and external identity resolver.
-- [x] Restrict token verification to RS256 and validate signature, issuer, audience, expiry, issued-at, and required subject/tenant claims; reject missing bearer credentials and unmapped identities.
-- [x] Keep external subject/tenant keys separate from internal UUIDs through an explicit resolver contract.
-- [x] Add unit tests for valid identity mapping, missing/non-bearer credentials, wrong issuer/audience, expired tokens, missing claims, unknown identity mapping, and invalid signatures (initial suite passed CI #890/#891).
-- [x] Add fail-fast environment factory for `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, and `OIDC_TENANT_CLAIM`; optional `OIDC_CLOCK_SKEW_SECONDS` is bounded to 0–120 seconds.
-- [x] Confirm the new adapter test suite in CI on Python 3.12 and 3.13 — Runs #890/#891 passed for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`.
+- [x] Add an OIDC/JWT PrincipalProvider adapter with explicit issuer, audience, JWKS URL, and tenant-claim configuration.
+- [x] Restrict token verification to RS256 and validate signature, issuer, audience, expiry, issued-at, and required subject/tenant claims.
+- [x] Add a fail-fast environment factory for OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, and OIDC_TENANT_CLAIM; optional OIDC_CLOCK_SKEW_SECONDS is bounded to 0–120 seconds.
+- [x] Add external_identity_mappings model and Alembic migration with unique external identity key and tenant foreign key.
+- [x] Add a Session-scoped SQLAlchemy resolver that queries only the exact identity triple and active mappings.
+- [x] Add unit tests for active resolution, unknown issuer/subject/tenant key, inactive mapping, and duplicate identity key. Latest CI verification is pending.
+- [x] Verify initial OIDC adapter suite on Python 3.12 and 3.13 — Runs #890/#891 passed for commit da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc.
+- [ ] Add PostgreSQL migration and resolver integration tests, then verify all latest tests on CI.
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
-- [ ] Implement and test a production-grade external identity resolver backed by the chosen identity/tenant model.
-- [ ] Add runtime composition wiring for the concrete configured provider and test HTTP rejection for invalid bearer tokens.
+- [ ] Wire the configured provider and resolver into runtime composition; test HTTP rejection for invalid and unmapped bearer tokens.
 
 ## Gate closure
-Do not claim deployment authentication complete until deployment-specific configuration, production identity mapping, negative-token tests, and tenant-spoofing tests pass in CI. The adapter is a security boundary component, not a ready-to-deploy identity system; `build_runtime_app` still requires explicit provider injection.
+Do not claim deployment authentication complete until deployment-specific configuration, trusted identity mapping, runtime wiring, negative-token HTTP tests, and tenant-spoofing tests pass in CI. The adapter and resolver are security boundary components, not a ready-to-deploy identity system.
