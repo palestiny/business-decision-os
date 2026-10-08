@@ -14,7 +14,7 @@ Define the production composition boundary for the existing Decision Core API be
 - The runtime requires an explicit database URL, authorization adapter, and PrincipalProvider; it does not invent authentication or an allow-all policy.
 - Authentication is delegated to an explicitly injected PrincipalProvider; the default provider rejects requests without an authenticated principal.
 
-An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastructure/authentication/oidc_jwt.py`. It requires explicit issuer/audience/JWKS/tenant-claim configuration and an external identity resolver. Deployment-specific settings, production resolver implementation, CI verification, and runtime wiring remain open; see `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
+An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastructure/authentication/oidc_jwt.py`. Runtime composition now uses it when no test/provider override is injected, with a database-backed resolver for server-provisioned external identity mappings. The mapping model and Alembic migration are implemented; current CI verification, deployment-specific settings, and HTTP auth tests remain open. See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
 
 ## Decisions
 
@@ -39,8 +39,10 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 - [x] Unit test: overlapping command executions use distinct Sessions and both contexts close — CI Runs #854/#855 passed on Python 3.12 and 3.13.
 - [x] PostgreSQL integration: injected Outbox write failure returns an error and the created case is absent after rollback — CI Runs #862/#863 passed on Python 3.12 and 3.13.
 - [x] PostgreSQL-backed overlapping HTTP create requests: both requests return 201 and both cases persist when the Outbox write path is deliberately overlapped — CI Runs #870/#871 passed on Python 3.12 and 3.13 for commit `191d3fcae473eecb710f786053e142eb605e7dc0`.
-- [x] Add a provider-agnostic OIDC/JWT bearer adapter with explicit security configuration and identity resolver contract (CI verification pending).
-- [ ] Configure deployment issuer/audience/JWKS and implement the trusted external identity-to-internal tenant/actor resolver; see `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
+- [x] Add a provider-agnostic OIDC/JWT bearer adapter with explicit security configuration.
+- [x] Add a persisted identity mapping model, migration, and exact-match active-mapping resolver (latest CI verification pending).
+- [x] Wire configured OIDC settings and the database resolver into runtime composition when no provider is injected.
+- [ ] Verify PostgreSQL migration/resolver tests and runtime HTTP rejection tests on CI; configure deployment-specific issuer/audience/JWKS/tenant claim.
 - [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
 ## Acceptance criteria
@@ -55,4 +57,4 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 
 ## Status
 
-**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production authentication configuration, resolver implementation, and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
+**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production identity-provider configuration, latest CI verification of the persisted resolver/runtime wiring, and composition of additional command routes remain open. This is not a deployment-readiness claim.
