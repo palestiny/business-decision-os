@@ -22,10 +22,17 @@
 - CI #871: https://github.com/palestiny/business-decision-os/actions/runs/37856033069
 - Runtime composition gate: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`
 
+## Authentication adapter progress
+- Added `OIDCJWTPrincipalProvider` using PyJWT/JWKS, fixed RS256 algorithm, explicit issuer/audience/JWKS/tenant claim configuration, bounded clock skew, and a resolver contract that maps external identities to internal UUIDs.
+- Added unit coverage for valid mapping, missing/non-bearer credentials, invalid issuer/audience/expiry/claims, unknown mapping, and bad signatures. CI Runs #884–#891 are pending at checkpoint authoring time; do not count these tests as verified until those runs complete.
+- The deployment's actual identity provider configuration and production resolver implementation remain open.
+
 ## Remaining before gate closure
-1. Configure a real deployment authentication provider; tests currently inject a controlled principal and authorization adapter.
-2. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
-3. Add product-facing queue usability and operator workflow validation.
+1. Verify the OIDC adapter test suite in CI on Python 3.12 and 3.13, fixing any failures.
+2. Configure the deployment issuer/audience/JWKS/tenant claim and implement a production-grade external identity resolver.
+3. Wire the configured provider into the runtime entry point and test invalid-token rejection over HTTP.
+4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
+5. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
 Do not label this production-ready and do not mark the runtime gate PASS yet. The first slice, including overlapping PostgreSQL-backed HTTP creates and rollback verification, is CI-verified. Deployable authentication and further command-route composition are not yet established.
