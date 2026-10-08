@@ -1,3 +1,4 @@
+from typing import Callable
 from uuid import UUID
 
 from sqlalchemy import select
@@ -86,3 +87,15 @@ class SQLAlchemyDecisionWorkQueueReader(DecisionWorkQueueReader):
             "EXECUTE_ACTION": 40,
             "REVIEW_OUTCOME": 50,
         }[attention]
+
+
+
+class SessionFactoryDecisionWorkQueueReader(DecisionWorkQueueReader):
+    """Open and close a dedicated SQLAlchemy Session for each queue query."""
+
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
+        self._session_factory = session_factory
+
+    def list(self, *, tenant_id: UUID) -> tuple[DecisionWorkQueueItem, ...]:
+        with self._session_factory() as session:
+            return SQLAlchemyDecisionWorkQueueReader(session).list(tenant_id=tenant_id)
