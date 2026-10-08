@@ -143,3 +143,51 @@ def test_provider_requires_explicit_security_configuration(key_pair):
             tenant_claim="tenant_key",
             resolver=Resolver(None),
         )
+
+
+def test_environment_factory_requires_all_identity_configuration():
+    with pytest.raises(RuntimeError, match="OIDC_ISSUER"):
+        OIDCJWTPrincipalProvider.from_environment(
+            resolver=Resolver(None),
+            environ={"OIDC_AUDIENCE": "api"},
+        )
+
+
+def test_environment_factory_builds_only_from_explicit_configuration(monkeypatch):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+
+    class JWKClient:
+        def __init__(self, url):
+            assert url == "https://identity.example.test/jwks"
+
+    monkeypatch.setattr(oidc_jwt, "PyJWKClient", JWKClient)
+    provider = OIDCJWTPrincipalProvider.from_environment(
+        resolver=Resolver(None),
+        environ={
+            "OIDC_ISSUER": "https://identity.example.test",
+            "OIDC_AUDIENCE": "decision-os-api",
+            "OIDC_JWKS_URL": "https://identity.example.test/jwks",
+            "OIDC_TENANT_CLAIM": "tenant_key",
+            "OIDC_CLOCK_SKEW_SECONDS": "15",
+        },
+    )
+
+    assert provider._issuer == "https://identity.example.test"
+    assert provider._audience == "decision-os-api"
+    assert provider._tenant_claim == "tenant_key"
+    assert provider._clock_skew_seconds == 15
+
+
+def test_environment_factory_rejects_invalid_clock_skew():
+    with pytest.raises(RuntimeError, match="OIDC_CLOCK_SKEW_SECONDS"):
+        OIDCJWTPrincipalProvider.from_environment(
+            resolver=Resolver(None),
+            environ={
+                "OIDC_ISSUER": "https://identity.example.test",
+                "OIDC_AUDIENCE": "decision-os-api",
+                "OIDC_JWKS_URL": "https://identity.example.test/jwks",
+                "OIDC_TENANT_CLAIM": "tenant_key",
+                "OIDC_CLOCK_SKEW_SECONDS": "later",
+            },
+        )
