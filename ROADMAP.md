@@ -108,13 +108,13 @@
 - [x] PostgreSQL HTTP cross-tenant queue isolation
 - [x] Runtime composition slice CI on Python 3.12 and 3.13 — Runs #844/#845
 - [x] Unit-level concurrent command isolation (distinct Sessions and cleanup; CI #854/#855)
-- [ ] PostgreSQL-backed concurrent HTTP request/transaction isolation
+- [x] PostgreSQL-backed overlapping HTTP create requests (both 201 and persisted; CI #870/#871, Python 3.12/3.13)
 - [x] PostgreSQL rollback verification when Outbox write fails (CI #862/#863)
 - [ ] Deployable authentication provider and deployment configuration
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
-**Status: Read-only queue PASS; first runtime composition slice implemented and CI-verified; runtime gate remains open.** Evidence: CI #844 https://github.com/palestiny/business-decision-os/actions/runs/37853330867 and CI #845 https://github.com/palestiny/business-decision-os/actions/runs/37853337025 on commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f`. Remaining runtime work is tracked in `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md` and `docs/checkpoints/CHECKPOINT-038.md`.
+**Status: Read-only queue PASS; first runtime composition slice implemented and CI-verified; runtime gate remains open.** Evidence: CI #844 https://github.com/palestiny/business-decision-os/actions/runs/37853330867 and CI #845 https://github.com/palestiny/business-decision-os/actions/runs/37853337025 for initial composition; CI #870 https://github.com/palestiny/business-decision-os/actions/runs/37856028446 and CI #871 https://github.com/palestiny/business-decision-os/actions/runs/37856033069 verify overlapping PostgreSQL-backed HTTP creates on Python 3.12/3.13. Rollback verification passed in CI #862/#863. Remaining runtime work is tracked in `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md` and `docs/checkpoints/CHECKPOINT-038.md`.
 
 ## Explicitly deferred
 - AI agents and AI authority
