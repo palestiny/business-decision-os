@@ -38,6 +38,7 @@ Authentication follow-up options and the recommended OIDC/JWT approach are docum
 - [x] Supported-Python CI passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f` (Runs #844 and #845).
 - [x] Unit test: overlapping command executions use distinct Sessions and both contexts close — CI Runs #854/#855 passed on Python 3.12 and 3.13.
 - [x] PostgreSQL integration: injected Outbox write failure returns an error and the created case is absent after rollback — CI Runs #862/#863 passed on Python 3.12 and 3.13.
+- [x] PostgreSQL-backed overlapping HTTP create requests: both requests return 201 and both cases persist when the Outbox write path is deliberately overlapped — CI Runs #870/#871 passed on Python 3.12 and 3.13 for commit `191d3fcae473eecb710f786053e142eb605e7dc0`.
 - [ ] Select the identity provider and trusted tenant/actor mapping, then implement the deployment authentication adapter; see `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
 - [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
@@ -53,4 +54,4 @@ Authentication follow-up options and the recommended OIDC/JWT approach are docum
 
 ## Status
 
-**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition and same-tenant/cross-tenant HTTP integration checks pass in CI on Python 3.12 and 3.13. Concurrent command Session isolation is unit-tested; PostgreSQL rollback after an injected Outbox failure is verified; production authentication configuration and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
+**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production authentication configuration and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
