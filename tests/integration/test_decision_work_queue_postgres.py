@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, close_all_sessions
+from sqlalchemy.orm import Session, close_all_sessions, sessionmaker
 
 from decision_os.application.api.app import create_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
@@ -13,7 +13,7 @@ from decision_os.infrastructure.persistence.models.action import ActionModel
 from decision_os.infrastructure.persistence.models.decision import DecisionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
-from decision_os.infrastructure.persistence.readers.decision_work_queue import SQLAlchemyDecisionWorkQueueReader
+from decision_os.infrastructure.persistence.readers.decision_work_queue import SessionFactoryDecisionWorkQueueReader
 from decision_os.infrastructure.persistence.session import build_session_factory
 
 DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
@@ -52,7 +52,8 @@ def build_client(session: Session, tenant_id):
     def principal_provider(request: Request):
         return principal
 
-    reader = SQLAlchemyDecisionWorkQueueReader(session)
+    request_session_factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    reader = SessionFactoryDecisionWorkQueueReader(request_session_factory)
     return TestClient(create_app(
         create_case_boundary=object(),
         decision_work_queue_reader=reader,
