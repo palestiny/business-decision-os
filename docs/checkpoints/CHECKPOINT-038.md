@@ -6,35 +6,27 @@
 ## Delivered
 - Added a runtime composition root that requires an explicit database URL, authorization adapter, and authenticated PrincipalProvider.
 - Engine and Session factory are process-scoped; each create-case execution uses a short-lived Session.
-- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case are composed over the same Session.
+- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case share one Session/transaction.
 - The work-queue reader creates and closes a Session per query, including exceptional query exit.
-- PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue.
-- A second tenant's queue is verified not to expose that case.
-- CI Runs #844 and #845 passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f`.
-- Concurrent command executions are unit-tested to use distinct Sessions and close both contexts; CI Runs #854 and #855 passed on Python 3.12 and 3.13 for commit `f753c655f437c2e24e9de48fbf079ba1de7b7874`.
-- PostgreSQL integration injects an Outbox write failure and verifies the new case is absent after rollback; CI Runs #862 and #863 passed on Python 3.12 and 3.13 for commit `dcccaf2816479f20613993058231f99ee3fbc05a`.
-- PostgreSQL-backed overlapping HTTP create requests force overlap inside the Outbox write path and verify both requests return 201 and both cases persist; CI Runs #870 and #871 passed on Python 3.12 and 3.13 for commit `191d3fcae473eecb710f786053e142eb605e7dc0`.
-
-## Verification evidence
-- CI #844: https://github.com/palestiny/business-decision-os/actions/runs/37853330867
-- CI #845: https://github.com/palestiny/business-decision-os/actions/runs/37853337025
-- CI #870: https://github.com/palestiny/business-decision-os/actions/runs/37856028446
-- CI #871: https://github.com/palestiny/business-decision-os/actions/runs/37856033069
-- Runtime composition gate: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`
+- PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue; a second tenant's queue cannot see it.
+- CI Runs #844/#845 passed on Python 3.12 and 3.13 for commit 3e8a1ced033c8f0e97f2a130bd4b6cce169b116f.
+- Concurrent command executions use distinct Sessions and close both contexts; CI Runs #854/#855 passed on Python 3.12 and 3.13 for commit f753c655f437c2e24e9de48fbf079ba1de7b7874.
+- PostgreSQL integration verifies rollback after an Outbox write failure; CI Runs #862/#863 passed for commit dcccaf2816479f20613993058231f99ee3fbc05a.
+- PostgreSQL-backed overlapping HTTP create requests both return 201 and persist; CI Runs #870/#871 passed on Python 3.12 and 3.13 for commit 191d3fcae473eecb710f786053e142eb605e7dc0.
 
 ## Authentication adapter progress
-- Added `OIDCJWTPrincipalProvider` using PyJWT/JWKS, fixed RS256 algorithm, explicit issuer/audience/JWKS/tenant claim configuration, bounded clock skew, and a resolver contract that maps external identities to internal UUIDs.
-- Added unit coverage for valid mapping, missing/non-bearer credentials, invalid issuer/audience/expiry/claims, unknown mapping, and bad signatures. CI Runs #890 and #891 passed on Python 3.12 and 3.13 for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
-- Added a fail-fast environment factory requiring `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, and `OIDC_TENANT_CLAIM`; `OIDC_CLOCK_SKEW_SECONDS` is optional and restricted to 0–120 seconds.
-- The initial adapter test suite passed CI #890/#891. New environment-factory tests and the current documentation changes still need a fresh CI run.
-- The deployment's actual identity provider configuration and production resolver implementation remain open.
+- Added OIDCJWTPrincipalProvider using PyJWT/JWKS, fixed RS256, explicit issuer/audience/JWKS/tenant claim, bounded clock skew, and an external identity resolver contract.
+- Added fail-fast environment settings: OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, OIDC_TENANT_CLAIM, and optional bounded OIDC_CLOCK_SKEW_SECONDS.
+- Added external_identity_mappings SQLAlchemy model and Alembic revision 0010_external_identity_mappings. It maps the verified issuer/subject/tenant_key tuple to internal actor and tenant UUIDs; active mappings only resolve and tenant references are constrained.
+- Added a Session-scoped SQLAlchemyExternalIdentityResolver and unit coverage for exact matching, inactive/unknown identities, and duplicate keys. CI for this new work is pending.
+- Initial OIDC adapter suite passed CI #890/#891 on Python 3.12 and 3.13: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
 
 ## Remaining before gate closure
-1. Run CI on the current documentation HEAD and keep the OIDC adapter suite green on Python 3.12 and 3.13.
-2. Configure the deployment issuer/audience/JWKS/tenant claim and implement a production-grade external identity resolver.
-3. Wire the configured provider into the runtime entry point and test invalid-token rejection over HTTP.
+1. Add/verify PostgreSQL migration and resolver integration coverage, and verify the newest commits in CI on Python 3.12/3.13.
+2. Configure the deployment issuer, audience, JWKS URL, and tenant claim; these values are not selected or available yet.
+3. Wire the database resolver and configured OIDC provider into runtime composition, then test HTTP rejection for invalid and unmapped tokens.
 4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
 5. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. The first slice, including overlapping PostgreSQL-backed HTTP creates and rollback verification, is CI-verified. Deployable authentication and further command-route composition are not yet established.
+Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice is CI-verified; deployment authentication remains incomplete until the identity mapping migration, runtime wiring, and HTTP authentication tests are verified.
