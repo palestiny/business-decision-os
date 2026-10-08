@@ -1,8 +1,4 @@
-from datetime import datetime, timezone
-from uuid import uuid4
-
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import Session
 
 from decision_os.infrastructure.persistence.base import Base
 from decision_os.infrastructure.persistence import models  # noqa: F401
@@ -13,6 +9,7 @@ def test_metadata_contains_required_persistence_tables() -> None:
         "tenants", "decision_cases", "decision_options", "decisions",
         "decision_selected_options", "idempotency_records", "audit_events", "outbox_messages",
         "evidence", "analysis_findings", "expected_outcomes", "actual_outcomes", "verifications",
+        "external_identity_mappings",
     }
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
