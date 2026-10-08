@@ -154,9 +154,6 @@ def test_environment_factory_requires_all_identity_configuration():
 
 
 def test_environment_factory_builds_only_from_explicit_configuration(monkeypatch):
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_key = private_key.public_key()
-
     class JWKClient:
         def __init__(self, url):
             assert url == "https://identity.example.test/jwks"
