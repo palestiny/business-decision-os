@@ -21,7 +21,7 @@ Project / Delivery Performance Decisions, starting with `PROJECT_MARGIN_RISK`.
 - Stage 10: tenant-scoped read-only Decision Work Queue implemented; CI Run #806 passed.
 - API query: `GET /api/v1/decision-work-queue`, enabled when `create_app` receives a `DecisionWorkQueueReader`.
 - Runtime composition: the first slice composes create-case and the work queue with scoped SQLAlchemy Sessions. PostgreSQL HTTP tests verify same-tenant visibility and cross-tenant isolation; CI Runs #844/#845 passed on Python 3.12 and 3.13.
-- Runtime verification now includes overlapping PostgreSQL-backed HTTP create requests (both 201 and persisted; CI Runs #870/#871 on Python 3.12/3.13) and rollback after an injected Outbox failure (CI #862/#863). The runtime gate remains open because deployable authentication configuration and additional command routes are not yet established; this is not a deployment-readiness claim.
-- See `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md` and `docs/checkpoints/CHECKPOINT-038.md` for evidence and remaining work. This is not a deployment-readiness claim.
+- Runtime verification now includes overlapping PostgreSQL-backed HTTP create requests (both 201 and persisted; CI Runs #870/#871 on Python 3.12/3.13) and rollback after an injected Outbox failure (CI #862/#863). The runtime gate remains open because deployment-specific authentication configuration, trusted identity/membership provisioning, a concrete authorization policy, and additional command routes are not yet established; this is not a deployment-readiness claim.
+- See `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`, and `docs/checkpoints/CHECKPOINT-038.md` for evidence and remaining work. This is not a deployment-readiness claim.
 
 See `docs/gates/HUMAN_DECISION_WORKFLOW_DESIGN_GATE.md` for the queue slice scope and `ROADMAP.md` for current stage status.
