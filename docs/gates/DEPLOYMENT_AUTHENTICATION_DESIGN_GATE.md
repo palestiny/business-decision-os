@@ -55,6 +55,7 @@
 - [x] Add unit tests for active resolution, unknown issuer/subject/tenant key, inactive mapping, and duplicate identity key. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit `6a136b38bb4218e39742cfa8063c3050bc8ba705`.
 - [x] Verify initial OIDC adapter suite on Python 3.12 and 3.13 — Runs #890/#891 passed for commit da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc.
 - [x] Run migration upgrade/downgrade/upgrade and `alembic check` in CI; PostgreSQL integration and full suite passed on Python 3.12/3.13 in Runs #938/#939.
+- [x] Verify initial RBAC unit/PostgreSQL integration and migration 0011 in CI Runs #959/#960 on Python 3.12/3.13 (182 tests per run).
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
 - [x] Wire configured provider and resolver into runtime composition; tests verify HTTP 401 for invalid-signature and valid-but-unmapped bearer tokens.
 
@@ -62,4 +63,4 @@
 Tenant-scoped RBAC is now the runtime default through `SQLAlchemyAuthorizationAdapter`, while the `AuthorizationPort` injection seam remains available for external policy adapters. Missing membership/role/permission denies by default. Trusted provisioning and deployment-specific OIDC configuration remain open; see `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`.
 
 ## Gate closure
-Do not claim deployment authentication complete until deployment-specific configuration is selected, the trusted mapping provisioning workflow is established, and authorization/membership policy is proven. The current adapter, resolver, migration, and negative-token HTTP tests passed CI Runs #938/#939 on Python 3.12/3.13, but this does not establish production readiness.
+Do not claim deployment authentication complete until deployment-specific configuration is selected, the trusted mapping provisioning workflow is established, and authorization/membership policy is proven. The adapter, resolver, migration, negative-token HTTP tests, and initial RBAC tests passed CI Runs #938/#939 and #959/#960 on Python 3.12/3.13. This does not establish production readiness while trusted provisioning and deployment-specific settings remain open.

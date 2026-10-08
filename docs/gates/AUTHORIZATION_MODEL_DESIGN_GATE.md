@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — INITIAL TENANT-SCOPED RBAC SLICE AWAITS CI AND OPERATIONAL-POLICY CLOSURE.**
+**INITIAL TENANT-SCOPED RBAC SLICE VERIFIED IN CI — OPERATIONAL-POLICY CLOSURE REMAINS OPEN.**
 
 The product owner approved Option B. The implementation now includes actor lifecycle, tenant memberships, role/permission grants, membership-scoped role assignments, and a fail-closed SQLAlchemy adapter. Runtime composition uses this adapter by default while allowing an explicit replacement. Migration 0011 backfills actor rows but deliberately creates no memberships or role assignments.
 
@@ -47,16 +47,20 @@ The product owner approved Option B. The implementation now includes actor lifec
 
 The initial permissions are tenant-wide. Role separation does not yet prevent the same actor from holding author and approver roles or approving their own case.
 
-## Acceptance criteria
+## Verification evidence
 
-- Every exposed command has a documented permission requirement.
-- An actor with no membership, inactive membership, or wrong-tenant membership is denied.
-- A member lacking the requested permission is denied.
-- Cross-tenant resource IDs do not pass authorization.
-- Explicit allow cases and deny-by-default cases have unit and PostgreSQL integration coverage.
-- CI passes on Python 3.12 and 3.13.
-- Runtime composition defaults to the database-backed adapter and never grants by default.
-- Trusted provisioning, durable authorization/role-change audit, separation-of-duties rules, and PostgreSQL verification are completed before PASS.
+- [x] Unit tests: allowed grant, wrong tenant, missing permission, inactive actor/membership/assignment/role, and policy-store failure.
+- [x] PostgreSQL integration: seeded role catalog, explicit grant succeeds, wrong tenant and missing permission are denied, and membership revocation takes effect.
+- [x] Migration upgrade/downgrade/upgrade and `alembic check` pass.
+- [x] CI Runs #959/#960 passed on Python 3.12 and 3.13 for commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e`; each run reports 182 passed tests.
+
+## Remaining before PASS
+
+- Trusted provisioning for identity mappings, memberships, and role assignments.
+- Durable audit of authorization decisions and role/membership changes.
+- Explicit separation-of-duties rules, including whether the same actor may author and approve a case.
+- Decide whether permissions need to vary by case type.
+- Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 
 ## Dependencies
 
