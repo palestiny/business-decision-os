@@ -101,11 +101,19 @@
 - [x] Unit tests for mapping and ordering
 - [x] PostgreSQL integration coverage for tenant isolation and ready-action eligibility
 - [x] CI verification — Run #806
-- [x] Runtime composition design gate documented
-- [ ] Deployment composition root / request-scoped database reader wiring
+- [x] Runtime composition root for create-case + work queue
+- [x] Request/use-case-scoped Session for create-case persistence adapters
+- [x] Query-scoped Session lifecycle for work queue
+- [x] PostgreSQL HTTP create-case → same-tenant queue visibility
+- [x] PostgreSQL HTTP cross-tenant queue isolation
+- [x] Runtime composition slice CI on Python 3.12 and 3.13 — Runs #844/#845
+- [ ] Concurrent request isolation (distinct Sessions/transactions)
+- [ ] PostgreSQL command rollback/error-path verification
+- [ ] Deployable authentication provider and deployment configuration
+- [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
-**Status: Stage 10 read-only queue slice PASS; runtime composition design defined, implementation and verification pending.** Evidence for queue: commit `870995158a1fae799241408cf39b95bae52e2e49`, CI Run #806: https://github.com/palestiny/business-decision-os/actions/runs/37850119985. Runtime design: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`.
+**Status: Read-only queue PASS; first runtime composition slice implemented and CI-verified; runtime gate remains open.** Evidence: CI #844 https://github.com/palestiny/business-decision-os/actions/runs/37853330867 and CI #845 https://github.com/palestiny/business-decision-os/actions/runs/37853337025 on commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f`. Remaining runtime work is tracked in `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md` and `docs/checkpoints/CHECKPOINT-038.md`.
 
 ## Explicitly deferred
 - AI agents and AI authority
