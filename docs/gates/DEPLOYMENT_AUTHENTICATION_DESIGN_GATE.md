@@ -1,7 +1,7 @@
 # Deployment Authentication Design Gate
 
 ## Status
-**OIDC/JWT ADAPTER AND PERSISTED IDENTITY RESOLVER IMPLEMENTED — RUNTIME WIRING AND DEPLOYMENT CONFIGURATION REMAIN OPEN.** The provider validates configured RS256 bearer tokens and delegates verified identity mapping to a server-managed database mapping. It is not yet a complete deployment configuration.
+**OIDC/JWT ADAPTER, PERSISTED IDENTITY RESOLVER, AND RUNTIME AUTO-WIRING IMPLEMENTED — DEPLOYMENT CONFIGURATION REMAINS OPEN.** The provider validates configured RS256 bearer tokens and delegates verified identity mapping to a server-managed database mapping. It is not yet a complete deployment configuration.
 
 ## Security invariants
 - Requests without valid authenticated identity fail closed.
@@ -52,11 +52,11 @@
 - [x] Add a fail-fast environment factory for OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, and OIDC_TENANT_CLAIM; optional OIDC_CLOCK_SKEW_SECONDS is bounded to 0–120 seconds.
 - [x] Add external_identity_mappings model and Alembic migration with unique external identity key and tenant foreign key.
 - [x] Add a Session-scoped SQLAlchemy resolver that queries only the exact identity triple and active mappings.
-- [x] Add unit tests for active resolution, unknown issuer/subject/tenant key, inactive mapping, and duplicate identity key. Latest CI verification is pending.
+- [x] Add unit tests for active resolution, unknown issuer/subject/tenant key, inactive mapping, and duplicate identity key. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit `6a136b38bb4218e39742cfa8063c3050bc8ba705`.
 - [x] Verify initial OIDC adapter suite on Python 3.12 and 3.13 — Runs #890/#891 passed for commit da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc.
-- [ ] Add PostgreSQL migration and resolver integration tests, then verify all latest tests on CI.
+- [x] Run migration upgrade/downgrade/upgrade and `alembic check` in CI; PostgreSQL integration and full suite passed on Python 3.12/3.13 in Runs #938/#939.
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
-- [ ] Wire the configured provider and resolver into runtime composition; test HTTP rejection for invalid and unmapped bearer tokens.
+- [x] Wire configured provider and resolver into runtime composition; tests verify HTTP 401 for invalid-signature and valid-but-unmapped bearer tokens.
 
 ## Gate closure
 Do not claim deployment authentication complete until deployment-specific configuration, trusted identity mapping, runtime wiring, negative-token HTTP tests, and tenant-spoofing tests pass in CI. The adapter and resolver are security boundary components, not a ready-to-deploy identity system.
