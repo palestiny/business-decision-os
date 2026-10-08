@@ -1,10 +1,10 @@
 # CHECKPOINT-038 — Runtime Composition First Slice
 
 ## Status
-**Runtime composition, OIDC wiring, and initial tenant-scoped RBAC slice are CI-verified. Runtime gate remains open for operational security controls.**
+**Runtime composition, OIDC wiring, tenant-scoped RBAC, and permission-gated read APIs are CI-verified. Runtime gate remains open for operational security controls.**
 
 ## Delivered
-- Added a runtime composition root that requires an explicit database URL, authorization adapter, and authenticated PrincipalProvider.
+- Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
 - Engine and Session factory are process-scoped; each create-case execution uses a short-lived Session.
 - The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case share one Session/transaction.
 - The work-queue reader creates and closes a Session per query, including exceptional query exit.
@@ -14,30 +14,29 @@
 - PostgreSQL integration verifies rollback after an Outbox write failure; CI Runs #862/#863 passed for commit dcccaf2816479f20613993058231f99ee3fbc05a.
 - PostgreSQL-backed overlapping HTTP create requests both return 201 and persist; CI Runs #870/#871 passed on Python 3.12 and 3.13 for commit 191d3fcae473eecb710f786053e142eb605e7dc0.
 
-## Authentication adapter progress
+## Authentication adapter
 - Added OIDCJWTPrincipalProvider using PyJWT/JWKS, fixed RS256, explicit issuer/audience/JWKS/tenant claim, bounded clock skew, and an external identity resolver contract.
-- Added fail-fast environment settings: OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, OIDC_TENANT_CLAIM, and optional bounded OIDC_CLOCK_SKEW_SECONDS.
-- Added external_identity_mappings SQLAlchemy model and Alembic revision 0010_external_identity_mappings. It maps the verified issuer/subject/tenant_key tuple to internal actor and tenant UUIDs; active mappings only resolve and tenant references are constrained.
-- Added a Session-scoped SQLAlchemyExternalIdentityResolver and unit coverage for exact matching, inactive/unknown identities, and duplicate keys.
-- Runtime composition now automatically builds the configured OIDC provider and database resolver when no provider is injected; missing OIDC environment configuration fails startup and disposes the engine. Added unit and PostgreSQL HTTP tests for invalid-signature and valid-but-unmapped tokens. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit `6a136b38bb4218e39742cfa8063c3050bc8ba705`; both jobs report 174 passed tests, and migration upgrade/downgrade/upgrade plus `alembic check` passed.
-- Initial OIDC adapter suite passed CI #890/#891 on Python 3.12 and 3.13: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
+- Required environment settings: OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, OIDC_TENANT_CLAIM; optional OIDC_CLOCK_SKEW_SECONDS is bounded.
+- Added external_identity_mappings model and Alembic revision 0010_external_identity_mappings, with exact active mapping from issuer/subject/tenant key to internal actor and tenant UUIDs.
+- Runtime automatically builds the configured OIDC provider and database resolver when no provider is injected. Missing OIDC configuration fails startup. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit 6a136b38bb4218e39742cfa8063c3050bc8ba705; both report 174 tests passed, with migration upgrade/downgrade/upgrade and alembic check passing.
 
-## Tenant-scoped RBAC implementation and verification
+## Tenant-scoped RBAC and read API enforcement
 - Added actor lifecycle, unique actor/tenant memberships, role catalog, role permissions, and membership-scoped role assignments.
-- Migration `0011_tenant_scoped_rbac` backfills actors for existing identity mappings and deliberately creates no memberships or role assignments.
-- Added fail-closed `SQLAlchemyAuthorizationAdapter`; runtime uses it by default while allowing explicit adapter injection.
-- Roles: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer. Read-only Reviewer receives only the three read permissions.
-- History, memory, and work-queue routes require their corresponding permissions; enabling these read APIs without an AuthorizationPort fails app composition.
-- Unit tests cover grants, wrong tenant, missing permissions, inactive actor/membership/assignment/role, and policy-store failure.
-- PostgreSQL integration verifies seeded roles, explicit grant, wrong-tenant denial, missing-permission denial, and membership revocation.
-- CI Runs #959/#960 passed on Python 3.12 and 3.13 at commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e`; 182 tests passed per run. Read-route permission enforcement passed CI #967/#968 at commit `ca8e5272aaa8fa90d491e2b62677e109181f3bdc`, with 184 tests per run and migration checks passing.
+- Migration 0011 backfills actor rows for existing identity mappings and deliberately creates no memberships or role assignments.
+- Added fail-closed SQLAlchemyAuthorizationAdapter; runtime uses it by default while allowing explicit adapter injection.
+- Seeded roles: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer. Read-only Reviewer receives only VIEW_DECISION_HISTORY, VIEW_DECISION_MEMORY, and VIEW_DECISION_WORK_QUEUE.
+- History, memory, and work-queue routes require their corresponding permissions; enabling these readers without an AuthorizationPort fails app composition.
+- Unit tests cover grants, wrong tenant, missing permissions, inactive actor/membership/assignment/role, policy-store failure, and protected read route denial.
+- PostgreSQL integration verifies seeded roles, explicit grants, wrong-tenant denial, missing-permission denial, membership revocation, and read-only reviewer restrictions.
+- CI Runs #959/#960 passed for the initial RBAC slice; latest read-route enforcement passed CI #967/#968 on Python 3.12 and 3.13 at commit ca8e5272aaa8fa90d491e2b62677e109181f3bdc, with 184 tests per run and migration checks passing.
 
-## Remaining before gate closure
-1. Establish trusted provisioning for identity mappings, memberships, and role assignments; no public provisioning endpoint exists.
-2. Decide durable authorization audit and separation-of-duties rules, including whether an author may approve the same case.
-3. Configure deployment OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
-5. Add product-facing queue usability and operator workflow validation.
+## Remaining before runtime/security gate closure
+1. Establish trusted provisioning for identity mappings, memberships, and role assignments; see docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md.
+2. Add durable authorization-decision and role/membership-change audit.
+3. Decide separation-of-duties rules, including whether an author may approve their own case.
+4. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
+5. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
+6. Validate product-facing queue usability and operator workflow.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified. RBAC and read-route permission enforcement are verified in CI, but operational controls and deployment configuration remain open.
+Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, and protected read routes are CI-verified. Trusted provisioning, durable authorization audit, separation-of-duties rules, and deployment configuration remain open.
