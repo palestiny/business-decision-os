@@ -1,7 +1,7 @@
 # Deployment Authentication Design Gate
 
 ## Status
-**DESIGN OPTIONS RECORDED — provider and tenant-claim mapping require an explicit deployment decision.** No production authentication implementation is claimed.
+**OIDC/JWT ADAPTER IMPLEMENTED — DEPLOYMENT IDENTITY MAPPING AND CI VERIFICATION REMAIN OPEN.** The provider validates configured RS256 bearer tokens and delegates verified external identity mapping; it is not yet a complete deployment configuration.
 
 ## Security invariants
 - Requests without valid authenticated identity fail closed.
@@ -38,5 +38,15 @@
 - Which verified subject maps to the internal actor UUID.
 - Whether this first deployment is public SaaS or behind a private trusted proxy.
 
+## Implementation status
+- [x] Add an OIDC/JWT PrincipalProvider adapter with explicit issuer, audience, JWKS URL, tenant-claim name, and external identity resolver.
+- [x] Restrict token verification to RS256 and validate signature, issuer, audience, expiry, issued-at, and required subject/tenant claims; reject missing bearer credentials and unmapped identities.
+- [x] Keep external subject/tenant keys separate from internal UUIDs through an explicit resolver contract.
+- [x] Add unit tests for valid identity mapping, missing/non-bearer credentials, wrong issuer/audience, expired tokens, missing claims, unknown identity mapping, and invalid signatures.
+- [ ] Confirm the new adapter test suite in CI on Python 3.12 and 3.13.
+- [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
+- [ ] Implement and test a production-grade external identity resolver backed by the chosen identity/tenant model.
+- [ ] Add runtime composition wiring for the concrete configured provider and test HTTP rejection for invalid bearer tokens.
+
 ## Gate closure
-Do not claim deployment authentication complete until the concrete provider, claim mapping, negative-token tests, and tenant-spoofing tests pass in CI. Until then, `build_runtime_app` correctly requires an injected provider but is not independently deployable as an authenticated production service.
+Do not claim deployment authentication complete until deployment-specific configuration, production identity mapping, negative-token tests, and tenant-spoofing tests pass in CI. The adapter is a security boundary component, not a ready-to-deploy identity system; `build_runtime_app` still requires explicit provider injection.
