@@ -6,6 +6,11 @@ from fastapi.testclient import TestClient
 
 from decision_os.application.api.app import create_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
+
+
+class AllowAuthorization:
+    def require(self, **kwargs):
+        return None
 from decision_os.application.ports.decision_memory import DecisionMemoryView
 
 
@@ -52,6 +57,7 @@ def test_decision_history_returns_coherent_verified_narrative_from_memory():
 
     app = create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=FakeDecisionMemoryReader(view),
         principal_provider=principal_provider,
     )
@@ -104,6 +110,7 @@ def test_decision_history_is_tenant_scoped():
 
     app = create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=FakeDecisionMemoryReader(view),
         principal_provider=principal_provider,
     )
@@ -147,6 +154,7 @@ def test_decision_history_preserves_unverified_or_missing_outcome_context():
 
     app = create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=FakeDecisionMemoryReader(view),
         principal_provider=principal_provider,
     )
@@ -158,3 +166,25 @@ def test_decision_history_preserves_unverified_or_missing_outcome_context():
     assert data["outcome"]["actual"]["observed_value"] == 88000
     assert data["verification"]["status"] == "PENDING"
     assert data["verification"]["status"] != "PASS"
+
+
+
+def test_decision_history_denies_actor_without_read_permission():
+    from decision_os.application.ports.authority import AuthorizationDenied
+
+    tenant_id = uuid4()
+    principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=tenant_id)
+
+    class DenyAuthorization:
+        def require(self, **kwargs):
+            raise AuthorizationDenied("no read permission")
+
+    app = create_app(
+        create_case_boundary=object(),
+        authorization=DenyAuthorization(),
+        decision_memory_reader=FakeDecisionMemoryReader(None),
+        principal_provider=lambda request: principal,
+    )
+    response = TestClient(app).get(f"/api/v1/decision-cases/{uuid4()}/history")
+
+    assert response.status_code == 403

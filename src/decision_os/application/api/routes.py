@@ -8,6 +8,7 @@ from decision_os.application.api.dependencies import PrincipalProvider, get_prin
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.ports.decision_memory import DecisionMemoryReader
 from decision_os.application.ports.decision_work_queue import DecisionWorkQueueReader
+from decision_os.application.ports.authority import AuthorizationPort, Permission
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
@@ -164,9 +165,12 @@ def build_router(
     create_evidence_boundary: CreateEvidenceReliabilityBoundary | None = None,
     add_analysis_finding_boundary: AddAnalysisFindingReliabilityBoundary | None = None,
     principal_provider: PrincipalProvider = get_principal,
+    authorization: AuthorizationPort | None = None,
     decision_memory_reader: DecisionMemoryReader | None = None,
     decision_work_queue_reader: DecisionWorkQueueReader | None = None,
 ) -> APIRouter:
+    if (decision_memory_reader is not None or decision_work_queue_reader is not None) and authorization is None:
+        raise RuntimeError("AuthorizationPort is required when protected read APIs are enabled")
     router = APIRouter(prefix="/api/v1")
 
     @router.post("/decision-cases", status_code=201)
@@ -497,6 +501,14 @@ def build_router(
             request: Request,
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
+            authorization.require(
+                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                permission=Permission.VIEW_DECISION_HISTORY, resource_id=case_id,
+            )
+            authorization.require(
+                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id,
+            )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
             if view is None:
                 raise HTTPException(status_code=404, detail="decision history not found")
@@ -577,6 +589,10 @@ def build_router(
             request: Request,
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
+            authorization.require(
+                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=principal.tenant_id,
+            )
             items = decision_work_queue_reader.list(tenant_id=principal.tenant_id)
             return {
                 "data": [

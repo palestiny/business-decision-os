@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session, close_all_sessions, sessionmaker
 
 from decision_os.application.api.app import create_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
+
+
+class AllowAuthorization:
+    def require(self, **kwargs):
+        return None
 from decision_os.infrastructure.persistence.models.action import ActionModel
 from decision_os.infrastructure.persistence.models.decision import DecisionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
@@ -56,6 +61,7 @@ def build_client(session: Session, tenant_id):
     reader = SessionFactoryDecisionWorkQueueReader(request_session_factory)
     return TestClient(create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_work_queue_reader=reader,
         principal_provider=principal_provider,
     ))

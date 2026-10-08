@@ -49,6 +49,10 @@ def test_postgres_rbac_requires_active_membership_and_explicit_permission():
             actor_id=actor_id, tenant_id=tenant_id,
             permission=Permission.CREATE_CASE, resource_id=uuid4(),
         )
+        adapter.require(
+            actor_id=actor_id, tenant_id=tenant_id,
+            permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=tenant_id,
+        )
         with pytest.raises(AuthorizationDenied):
             adapter.require(
                 actor_id=actor_id, tenant_id=other_tenant_id,
@@ -66,6 +70,45 @@ def test_postgres_rbac_requires_active_membership_and_explicit_permission():
             membership.is_active = False
             session.commit()
 
+        with pytest.raises(AuthorizationDenied):
+            adapter.require(
+                actor_id=actor_id, tenant_id=tenant_id,
+                permission=Permission.CREATE_CASE, resource_id=uuid4(),
+            )
+    finally:
+        engine.dispose()
+
+
+
+def test_postgres_read_only_reviewer_can_read_but_cannot_create_commands():
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    actor_id, tenant_id, membership_id = uuid4(), uuid4(), uuid4()
+    try:
+        with factory() as session:
+            role = session.scalar(
+                select(RoleModel).where(RoleModel.key == "read_only_reviewer", RoleModel.is_active.is_(True))
+            )
+            assert role is not None
+            session.add_all([
+                TenantModel(id=tenant_id, name=f"rbac-reviewer-{tenant_id}"),
+                ActorModel(id=actor_id, is_active=True),
+            ])
+            session.flush()
+            session.add(TenantMembershipModel(
+                id=membership_id, actor_id=actor_id, tenant_id=tenant_id, is_active=True,
+            ))
+            session.flush()
+            session.add(MembershipRoleAssignmentModel(
+                membership_id=membership_id, role_id=role.id, is_active=True,
+            ))
+            session.commit()
+
+        adapter = SQLAlchemyAuthorizationAdapter(factory)
+        adapter.require(
+            actor_id=actor_id, tenant_id=tenant_id,
+            permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=tenant_id,
+        )
         with pytest.raises(AuthorizationDenied):
             adapter.require(
                 actor_id=actor_id, tenant_id=tenant_id,

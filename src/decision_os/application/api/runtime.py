@@ -51,6 +51,7 @@ def build_runtime_app(
     app = create_app(
         create_case_boundary=create_case_boundary,
         decision_work_queue_reader=queue_reader,
+        authorization=authorization,
         principal_provider=principal_provider,
     )
 

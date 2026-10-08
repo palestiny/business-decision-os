@@ -6,6 +6,11 @@ from fastapi.testclient import TestClient
 
 from decision_os.application.api.app import create_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
+
+
+class AllowAuthorization:
+    def require(self, **kwargs):
+        return None
 from decision_os.application.ports.decision_memory import DecisionMemoryView
 
 
@@ -26,6 +31,7 @@ def _client(reader):
     principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=tenant_id)
     return TestClient(create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=reader,
         principal_provider=lambda request: principal,
     )), tenant_id
@@ -63,6 +69,7 @@ def test_decision_memory_read_returns_projection_and_consistency_metadata():
 
     app = create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=reader,
         principal_provider=principal_provider,
     )
@@ -110,6 +117,7 @@ def test_decision_memory_read_is_tenant_scoped_and_returns_not_found():
 
     app = create_app(
         create_case_boundary=object(),
+        authorization=AllowAuthorization(),
         decision_memory_reader=FakeDecisionMemoryReader(view),
         principal_provider=principal_provider,
     )

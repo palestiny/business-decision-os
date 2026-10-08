@@ -15,7 +15,7 @@ from decision_os.application.api.dependencies import PrincipalProvider, get_prin
 from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.application.ports.decision_memory import DecisionMemoryReader
 from decision_os.application.ports.decision_work_queue import DecisionWorkQueueReader
-from decision_os.application.ports.authority import AuthorizationDenied, PolicyEvaluationUnavailable
+from decision_os.application.ports.authority import AuthorizationDenied, AuthorizationPort, PolicyEvaluationUnavailable
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.application.ports.reliability import ConcurrencyConflict
 from decision_os.domain.decision_case import DomainError
@@ -23,7 +23,9 @@ from decision_os.domain.decision import DecisionError
 from decision_os.domain.action import InvalidAction
 
 
-def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, create_action_boundary=None, start_action_boundary=None, complete_execution_boundary=None, reconcile_execution_boundary=None, mark_unknown_execution_boundary=None, create_expected_outcome_boundary=None, record_actual_outcome_boundary=None, verify_outcome_boundary=None, create_evidence_boundary=None, add_analysis_finding_boundary=None, decision_memory_reader: DecisionMemoryReader | None = None, decision_work_queue_reader: DecisionWorkQueueReader | None = None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision_boundary=None, approve_decision_boundary=None, reject_decision_boundary=None, start_analysis_boundary=None, submit_options_boundary=None, await_decision_boundary=None, create_action_boundary=None, start_action_boundary=None, complete_execution_boundary=None, reconcile_execution_boundary=None, mark_unknown_execution_boundary=None, create_expected_outcome_boundary=None, record_actual_outcome_boundary=None, verify_outcome_boundary=None, create_evidence_boundary=None, add_analysis_finding_boundary=None, decision_memory_reader: DecisionMemoryReader | None = None, decision_work_queue_reader: DecisionWorkQueueReader | None = None, authorization: AuthorizationPort | None = None, principal_provider: PrincipalProvider = get_principal) -> FastAPI:
+    if (decision_memory_reader is not None or decision_work_queue_reader is not None) and authorization is None:
+        raise RuntimeError("AuthorizationPort is required when protected read APIs are enabled")
     app = FastAPI(title="Business Decision OS API", version="0.1.0")
 
     @app.middleware("http")
@@ -59,7 +61,7 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
     app.add_exception_handler(Exception, unexpected_error_handler)
 
     app.include_router(build_router(
-        boundary=create_case_boundary, triage_boundary=triage_case_boundary, make_decision_boundary=make_decision_boundary,
+        boundary=create_case_boundary, authorization=authorization, triage_boundary=triage_case_boundary, make_decision_boundary=make_decision_boundary,
         approve_decision_boundary=approve_decision_boundary, reject_decision_boundary=reject_decision_boundary,
         start_analysis_boundary=start_analysis_boundary, submit_options_boundary=submit_options_boundary,
         await_decision_boundary=await_decision_boundary, create_action_boundary=create_action_boundary,
