@@ -26,10 +26,11 @@
 - Added actor lifecycle, unique actor/tenant memberships, role catalog, role permissions, and membership-scoped role assignments.
 - Migration `0011_tenant_scoped_rbac` backfills actors for existing identity mappings and deliberately creates no memberships or role assignments.
 - Added fail-closed `SQLAlchemyAuthorizationAdapter`; runtime uses it by default while allowing explicit adapter injection.
-- Initial roles: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer.
+- Roles: Tenant Admin, Decision Author, Approver, Operator, Read-only Reviewer. Read-only Reviewer receives only the three read permissions.
+- History, memory, and work-queue routes require their corresponding permissions; enabling these read APIs without an AuthorizationPort fails app composition.
 - Unit tests cover grants, wrong tenant, missing permissions, inactive actor/membership/assignment/role, and policy-store failure.
 - PostgreSQL integration verifies seeded roles, explicit grant, wrong-tenant denial, missing-permission denial, and membership revocation.
-- CI Runs #959/#960 passed on Python 3.12 and 3.13 at commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e`; 182 tests passed per run and Alembic upgrade/downgrade/upgrade plus `alembic check` passed.
+- CI Runs #959/#960 passed on Python 3.12 and 3.13 at commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e`; 182 tests passed per run. Read-route permission enforcement passed CI #967/#968 at commit `ca8e5272aaa8fa90d491e2b62677e109181f3bdc`, with 184 tests per run and migration checks passing.
 
 ## Remaining before gate closure
 1. Establish trusted provisioning for identity mappings, memberships, and role assignments; no public provisioning endpoint exists.
@@ -39,4 +40,4 @@
 5. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified. The initial RBAC slice is verified in CI, but operational controls and deployment configuration remain open.
+Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice and OIDC runtime wiring are CI-verified. RBAC and read-route permission enforcement are verified in CI, but operational controls and deployment configuration remain open.

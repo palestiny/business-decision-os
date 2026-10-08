@@ -56,6 +56,7 @@
 - [x] Verify initial OIDC adapter suite on Python 3.12 and 3.13 — Runs #890/#891 passed for commit da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc.
 - [x] Run migration upgrade/downgrade/upgrade and `alembic check` in CI; PostgreSQL integration and full suite passed on Python 3.12/3.13 in Runs #938/#939.
 - [x] Verify initial RBAC unit/PostgreSQL integration and migration 0011 in CI Runs #959/#960 on Python 3.12/3.13 (182 tests per run).
+- [x] Verify permission-gated history, memory, and work-queue routes plus read-only reviewer grants in CI Runs #967/#968 on Python 3.12/3.13 (184 tests per run).
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
 - [x] Wire configured provider and resolver into runtime composition; tests verify HTTP 401 for invalid-signature and valid-but-unmapped bearer tokens.
 

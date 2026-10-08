@@ -112,7 +112,7 @@
 - [x] PostgreSQL rollback verification when Outbox write fails (CI #862/#863)
 - [x] OIDC/JWT adapter plus database-backed external identity resolver and runtime auto-wiring (CI #938/#939 passed, Python 3.12/3.13)
 - [ ] Deployment-specific authentication configuration and trusted identity-mapping provisioning policy
-- [x] Approve and implement tenant-scoped RBAC model, fail-closed SQLAlchemy adapter, PostgreSQL tests, and CI verification (#959/#960 on Python 3.12/3.13) — `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`
+- [x] Implement tenant-scoped RBAC, PostgreSQL tests, permission-gated read APIs, and CI verification (#967/#968 on Python 3.12/3.13) — `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`
 - [ ] Trusted provisioning of tenant memberships and role assignments
 - [ ] Durable authorization audit and separation-of-duties policy
 - [ ] Compose additional command routes after lifecycle/authorization review

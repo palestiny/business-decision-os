@@ -43,16 +43,17 @@ The product owner approved Option B. The implementation now includes actor lifec
 - `decision_author`: create/triage cases, start analysis, submit options, await decision, create evidence, and add analysis.
 - `approver`: make, approve, or reject decisions.
 - `operator`: create/start actions, update/reconcile execution, create/verify outcomes.
-- `read_only_reviewer`: no command permissions; read APIs keep their own tenant-scoped query contracts.
+- `read_only_reviewer`: no command permissions; granted only `VIEW_DECISION_HISTORY`, `VIEW_DECISION_MEMORY`, and `VIEW_DECISION_WORK_QUEUE`.
 
-The initial permissions are tenant-wide. Role separation does not yet prevent the same actor from holding author and approver roles or approving their own case.
+The initial permissions are tenant-wide. History, memory, and work-queue read routes require their corresponding permission, and app composition rejects enabling these readers without an AuthorizationPort. Role separation does not yet prevent the same actor from holding author and approver roles or approving their own case.
 
 ## Verification evidence
 
-- [x] Unit tests: allowed grant, wrong tenant, missing permission, inactive actor/membership/assignment/role, and policy-store failure.
-- [x] PostgreSQL integration: seeded role catalog, explicit grant succeeds, wrong tenant and missing permission are denied, and membership revocation takes effect.
+- [x] Unit tests: allowed grant, wrong tenant, missing permission, inactive actor/membership/assignment/role, policy-store failure, and denial at a protected read route.
+- [x] PostgreSQL integration: seeded role catalog, explicit command/read grants, wrong tenant and missing permission denied, membership revocation takes effect, and read-only reviewer cannot create commands.
+- [x] History, memory, and work-queue API routes require explicit authorization; reader APIs cannot be composed without an AuthorizationPort.
 - [x] Migration upgrade/downgrade/upgrade and `alembic check` pass.
-- [x] CI Runs #959/#960 passed on Python 3.12 and 3.13 for commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e`; each run reports 182 passed tests.
+- [x] CI Runs #967/#968 passed on Python 3.12 and 3.13 for commit `ca8e5272aaa8fa90d491e2b62677e109181f3bdc`; each run reports 184 passed tests.
 
 ## Remaining before PASS
 
