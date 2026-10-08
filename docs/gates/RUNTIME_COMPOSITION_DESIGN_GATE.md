@@ -35,7 +35,7 @@ Define the production composition boundary for the existing Decision Core API be
 - [x] PostgreSQL HTTP integration: verify a second tenant cannot see the first tenant's case.
 - [x] Supported-Python CI passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f` (Runs #844 and #845).
 - [x] Unit test: overlapping command executions use distinct Sessions and both contexts close — CI Runs #854/#855 passed on Python 3.12 and 3.13.
-- [ ] Verify runtime command rollback and cleanup on exceptional paths using PostgreSQL integration tests.
+- [x] PostgreSQL integration: injected Outbox write failure returns an error and the created case is absent after rollback — CI Runs #862/#863 passed on Python 3.12 and 3.13.
 - [ ] Decide and implement the deployment authentication adapter/configuration; injected test providers are not production authentication.
 - [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
@@ -51,4 +51,4 @@ Define the production composition boundary for the existing Decision Core API be
 
 ## Status
 
-**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition and same-tenant/cross-tenant HTTP integration checks pass in CI on Python 3.12 and 3.13. Concurrent command Session isolation is unit-tested; PostgreSQL runtime rollback/error-path behavior, production authentication configuration, and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
+**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition and same-tenant/cross-tenant HTTP integration checks pass in CI on Python 3.12 and 3.13. Concurrent command Session isolation is unit-tested; PostgreSQL rollback after an injected Outbox failure is verified; production authentication configuration and composition of additional command routes remain unverified or out of scope. This is not a deployment-readiness claim.
