@@ -19,7 +19,7 @@
 - Added fail-fast environment settings: OIDC_ISSUER, OIDC_AUDIENCE, OIDC_JWKS_URL, OIDC_TENANT_CLAIM, and optional bounded OIDC_CLOCK_SKEW_SECONDS.
 - Added external_identity_mappings SQLAlchemy model and Alembic revision 0010_external_identity_mappings. It maps the verified issuer/subject/tenant_key tuple to internal actor and tenant UUIDs; active mappings only resolve and tenant references are constrained.
 - Added a Session-scoped SQLAlchemyExternalIdentityResolver and unit coverage for exact matching, inactive/unknown identities, and duplicate keys.
-- Runtime composition now automatically builds the configured OIDC provider and database resolver when no provider is injected; missing OIDC environment configuration fails startup and disposes the engine. Added unit and PostgreSQL HTTP tests for invalid-signature and valid-but-unmapped tokens. Latest CI verification is pending.
+- Runtime composition now automatically builds the configured OIDC provider and database resolver when no provider is injected; missing OIDC environment configuration fails startup and disposes the engine. Added unit and PostgreSQL HTTP tests for invalid-signature and valid-but-unmapped tokens. CI Runs #938/#939 passed on Python 3.12 and 3.13 for commit `6a136b38bb4218e39742cfa8063c3050bc8ba705`; both jobs report 174 passed tests, and migration upgrade/downgrade/upgrade plus `alembic check` passed.
 - Initial OIDC adapter suite passed CI #890/#891 on Python 3.12 and 3.13: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
 
 ## Remaining before gate closure
@@ -29,4 +29,4 @@
 5. Add product-facing queue usability and operator workflow validation.
 
 ## Decision
-Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice is CI-verified; deployment authentication remains incomplete until the new migration/resolver/runtime wiring tests pass and actual deployment configuration is selected.
+Do not label this production-ready and do not mark the runtime gate PASS yet. Runtime composition's create-case/work-queue slice is CI-verified; deployment authentication remains incomplete until actual deployment configuration and trusted provisioning/authorization policy are selected.
