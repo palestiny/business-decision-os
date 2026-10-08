@@ -14,6 +14,8 @@ Define the production composition boundary for the existing Decision Core API be
 - The runtime requires an explicit database URL, authorization adapter, and PrincipalProvider; it does not invent authentication or an allow-all policy.
 - Authentication is delegated to an explicitly injected PrincipalProvider; the default provider rejects requests without an authenticated principal.
 
+Authentication follow-up options and the recommended OIDC/JWT approach are documented separately in `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`. The concrete provider and trusted tenant/actor claim mapping remain explicit open decisions.
+
 ## Decisions
 
 1. A SQLAlchemy Engine and session factory are process-scoped; a Session is never shared between HTTP requests.
@@ -36,7 +38,7 @@ Define the production composition boundary for the existing Decision Core API be
 - [x] Supported-Python CI passed on Python 3.12 and 3.13 for commit `3e8a1ced033c8f0e97f2a130bd4b6cce169b116f` (Runs #844 and #845).
 - [x] Unit test: overlapping command executions use distinct Sessions and both contexts close — CI Runs #854/#855 passed on Python 3.12 and 3.13.
 - [x] PostgreSQL integration: injected Outbox write failure returns an error and the created case is absent after rollback — CI Runs #862/#863 passed on Python 3.12 and 3.13.
-- [ ] Decide and implement the deployment authentication adapter/configuration; injected test providers are not production authentication.
+- [ ] Select the identity provider and trusted tenant/actor mapping, then implement the deployment authentication adapter; see `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
 - [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
 ## Acceptance criteria
