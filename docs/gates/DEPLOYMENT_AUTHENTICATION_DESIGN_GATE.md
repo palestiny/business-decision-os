@@ -43,7 +43,7 @@
 - [x] Restrict token verification to RS256 and validate signature, issuer, audience, expiry, issued-at, and required subject/tenant claims; reject missing bearer credentials and unmapped identities.
 - [x] Keep external subject/tenant keys separate from internal UUIDs through an explicit resolver contract.
 - [x] Add unit tests for valid identity mapping, missing/non-bearer credentials, wrong issuer/audience, expired tokens, missing claims, unknown identity mapping, and invalid signatures.
-- [ ] Confirm the new adapter test suite in CI on Python 3.12 and 3.13.
+- [x] Confirm the new adapter test suite in CI on Python 3.12 and 3.13 — Runs #890/#891 passed for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`.
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
 - [ ] Implement and test a production-grade external identity resolver backed by the chosen identity/tenant model.
 - [ ] Add runtime composition wiring for the concrete configured provider and test HTTP rejection for invalid bearer tokens.
