@@ -12,10 +12,14 @@ Signal → Case → Evidence → Analysis → Options → Decision → Approval 
 
 ## Initial vertical slice
 
-Project / Delivery Performance Decisions, starting with PROJECT_MARGIN_RISK.
+Project / Delivery Performance Decisions, starting with `PROJECT_MARGIN_RISK`.
 
-## Architecture status
+## Architecture and implementation status
 
-Application Architecture Gate: PASS.
+- Application Architecture Gate: PASS.
+- Stages 0–9: foundation, Decision Core, reliability, vertical slices, Decision Memory, and read-only Decision History implemented and gated as recorded in `ROADMAP.md`.
+- Stage 10: tenant-scoped read-only Decision Work Queue implemented; CI Run #806 passed.
+- API query: `GET /api/v1/decision-work-queue`, enabled when `create_app` receives a `DecisionWorkQueueReader`.
+- Runtime limitation: this repository currently provides an application factory and dependency-injection contracts, not a deployment composition root. A runtime entry point must wire a request-lifecycle-safe database session/reader before treating the API as a deployed service.
 
-Implementation has not started yet. The repository currently captures the approved product and architecture decisions before implementation.
+See `docs/gates/HUMAN_DECISION_WORKFLOW_DESIGN_GATE.md` for scope, verification, and limitations.
