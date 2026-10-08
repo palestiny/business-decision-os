@@ -25,6 +25,8 @@
 ## Authentication adapter progress
 - Added `OIDCJWTPrincipalProvider` using PyJWT/JWKS, fixed RS256 algorithm, explicit issuer/audience/JWKS/tenant claim configuration, bounded clock skew, and a resolver contract that maps external identities to internal UUIDs.
 - Added unit coverage for valid mapping, missing/non-bearer credentials, invalid issuer/audience/expiry/claims, unknown mapping, and bad signatures. CI Runs #890 and #891 passed on Python 3.12 and 3.13 for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
+- Added a fail-fast environment factory requiring `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL`, and `OIDC_TENANT_CLAIM`; `OIDC_CLOCK_SKEW_SECONDS` is optional and restricted to 0–120 seconds.
+- The initial adapter test suite passed CI #890/#891. New environment-factory tests and the current documentation changes still need a fresh CI run.
 - The deployment's actual identity provider configuration and production resolver implementation remain open.
 
 ## Remaining before gate closure
