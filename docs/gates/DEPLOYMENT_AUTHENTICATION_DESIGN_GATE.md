@@ -58,5 +58,8 @@
 - [ ] Choose and configure the actual issuer, audience, JWKS URL, and tenant claim for the deployment.
 - [x] Wire configured provider and resolver into runtime composition; tests verify HTTP 401 for invalid-signature and valid-but-unmapped bearer tokens.
 
+## Authorization dependency
+Authorization is deliberately not implemented as a permissive default. The runtime still requires an injected AuthorizationPort. The next required design decision is documented in `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`, including tenant-scoped RBAC as the recommended default. JWT authentication does not prove membership or permission.
+
 ## Gate closure
-Do not claim deployment authentication complete until deployment-specific configuration, trusted identity mapping, runtime wiring, negative-token HTTP tests, and tenant-spoofing tests pass in CI. The adapter and resolver are security boundary components, not a ready-to-deploy identity system.
+Do not claim deployment authentication complete until deployment-specific configuration is selected, the trusted mapping provisioning workflow is established, and authorization/membership policy is proven. The current adapter, resolver, migration, and negative-token HTTP tests passed CI Runs #938/#939 on Python 3.12/3.13, but this does not establish production readiness.
