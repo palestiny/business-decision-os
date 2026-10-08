@@ -7,7 +7,9 @@ from decision_os.application.ports.decision_work_queue import (
     DecisionWorkQueueItem,
     DecisionWorkQueueReader,
 )
+from decision_os.domain.action import ActionStatus
 from decision_os.domain.decision_case import CaseStatus
+from decision_os.infrastructure.persistence.models.action import ActionModel
 from decision_os.infrastructure.persistence.models.decision import DecisionModel
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 
@@ -18,14 +20,27 @@ class SQLAlchemyDecisionWorkQueueReader(DecisionWorkQueueReader):
 
     def list(self, *, tenant_id: UUID) -> tuple[DecisionWorkQueueItem, ...]:
         rows = self._session.execute(
-            select(DecisionCaseModel, DecisionModel)
+            select(DecisionCaseModel, DecisionModel, ActionModel)
             .outerjoin(DecisionModel, DecisionModel.case_id == DecisionCaseModel.id)
+            .outerjoin(
+                ActionModel,
+                (ActionModel.case_id == DecisionCaseModel.id)
+                & (ActionModel.tenant_id == DecisionCaseModel.tenant_id),
+            )
             .where(DecisionCaseModel.tenant_id == tenant_id)
         ).all()
 
+        by_case = {}
+        for case, decision, action in rows:
+            current = by_case.get(case.id)
+            if current is None:
+                by_case[case.id] = (case, decision, action)
+            elif action is not None and action.status == ActionStatus.READY.value:
+                by_case[case.id] = (case, decision, action)
+
         items = []
-        for case, decision in rows:
-            attention = self._attention(case.status, decision)
+        for case, decision, action in by_case.values():
+            attention = self._attention(case.status, decision, action)
             if attention == "NO_ACTION":
                 continue
             items.append(
@@ -47,13 +62,15 @@ class SQLAlchemyDecisionWorkQueueReader(DecisionWorkQueueReader):
         return tuple(sorted(items, key=lambda item: (self._priority(item.attention_state), str(item.case_id))))
 
     @staticmethod
-    def _attention(status: str, decision: DecisionModel | None) -> str:
+    def _attention(status: str, decision: DecisionModel | None, action: ActionModel | None = None) -> str:
         if status == CaseStatus.AWAITING_DECISION.value:
             return "MAKE_DECISION"
         if status == CaseStatus.AWAITING_APPROVAL.value:
             return "APPROVE_DECISION"
         if status == CaseStatus.APPROVED.value:
-            return "EXECUTE_ACTION"
+            if action is not None and action.status == ActionStatus.READY.value:
+                return "EXECUTE_ACTION"
+            return "NO_ACTION"
         if status in {CaseStatus.OUTCOME_PENDING.value, CaseStatus.VERIFYING.value}:
             return "REVIEW_OUTCOME"
         if status in {CaseStatus.DETECTED.value, CaseStatus.TRIAGED.value, CaseStatus.ANALYZING.value, CaseStatus.OPTIONS_READY.value}:
