@@ -84,3 +84,87 @@ def test_runtime_refuses_to_start_without_database_url():
         assert str(exc) == "SQLALCHEMY_DATABASE_URL is required to start the Decision OS runtime"
     else:
         raise AssertionError("runtime should fail fast without a database URL")
+
+
+
+def test_concurrent_create_case_executions_use_distinct_sessions(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, Lock
+
+    from decision_os.infrastructure.persistence import runtime_composition
+
+    barrier = Barrier(2)
+    lock = Lock()
+    opened_sessions = []
+    active_sessions = set()
+    closed_sessions = []
+
+    class Session:
+        pass
+
+    class SessionContext:
+        def __init__(self):
+            self.session = Session()
+
+        def __enter__(self):
+            with lock:
+                opened_sessions.append(self.session)
+                active_sessions.add(self.session)
+            return self.session
+
+        def __exit__(self, exc_type, exc, traceback):
+            with lock:
+                active_sessions.remove(self.session)
+                closed_sessions.append(self.session)
+            return False
+
+    class SessionFactory:
+        def __call__(self):
+            return SessionContext()
+
+    class Uow:
+        def __init__(self, session):
+            self.session = session
+
+    class Adapter:
+        def __init__(self, session):
+            self.session = session
+
+    class Handler:
+        def __init__(self, uow, authorization):
+            self.uow = uow
+
+    class Boundary:
+        def __init__(self, **kwargs):
+            self.uow = kwargs["uow"]
+
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            barrier.wait(timeout=5)
+            with lock:
+                assert self.uow.session in active_sessions
+                return self.uow.session
+
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyUnitOfWork", Uow)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyIdempotencyRepository", Adapter)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyAuditRepository", Adapter)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyOutboxRepository", Adapter)
+    monkeypatch.setattr(runtime_composition, "CreateDecisionCaseHandler", Handler)
+    monkeypatch.setattr(runtime_composition, "CreateDecisionCaseReliabilityBoundary", Boundary)
+
+    provider = runtime_composition.SessionScopedCreateDecisionCaseBoundary(
+        session_factory=SessionFactory(),
+        authorization=object(),
+    )
+    command = CreateDecisionCaseCommand(
+        tenant_id=uuid4(), actor_id=uuid4(), case_type="PROJECT_MARGIN_RISK", title="Concurrent risk"
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(provider.execute, command, idempotency_key="concurrent-1")
+        second = executor.submit(provider.execute, command, idempotency_key="concurrent-2")
+        first_session, second_session = first.result(timeout=10), second.result(timeout=10)
+
+    assert first_session is not second_session
+    assert len(opened_sessions) == 2
+    assert set(opened_sessions) == set(closed_sessions)
+    assert not active_sessions
