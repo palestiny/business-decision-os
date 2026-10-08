@@ -101,10 +101,11 @@
 - [x] Unit tests for mapping and ordering
 - [x] PostgreSQL integration coverage for tenant isolation and ready-action eligibility
 - [x] CI verification — Run #806
-- [ ] Deployment composition root / request-scoped database reader wiring — deferred until runtime entry point is introduced
-- [ ] Product-facing queue usability and operator workflow — next product slice
+- [x] Runtime composition design gate documented
+- [ ] Deployment composition root / request-scoped database reader wiring
+- [ ] Product-facing queue usability and operator workflow
 
-**Status: Stage 10 read-only queue slice PASS; runtime composition remains an explicit follow-up.** Evidence: commit `870995158a1fae799241408cf39b95bae52e2e49`, CI Run #806: https://github.com/palestiny/business-decision-os/actions/runs/37850119985
+**Status: Stage 10 read-only queue slice PASS; runtime composition design defined, implementation and verification pending.** Evidence for queue: commit `870995158a1fae799241408cf39b95bae52e2e49`, CI Run #806: https://github.com/palestiny/business-decision-os/actions/runs/37850119985. Runtime design: `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`.
 
 ## Explicitly deferred
 - AI agents and AI authority
