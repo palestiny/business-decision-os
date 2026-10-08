@@ -1,5 +1,7 @@
+from types import SimpleNamespace
 from uuid import uuid4
 
+from decision_os.domain.action import ActionStatus
 from decision_os.domain.decision_case import CaseStatus
 from decision_os.infrastructure.persistence.readers.decision_work_queue import SQLAlchemyDecisionWorkQueueReader
 
@@ -9,7 +11,9 @@ def test_attention_mapping_covers_human_workflow_states():
 
     assert reader._attention(CaseStatus.AWAITING_DECISION.value, None) == "MAKE_DECISION"
     assert reader._attention(CaseStatus.AWAITING_APPROVAL.value, None) == "APPROVE_DECISION"
-    assert reader._attention(CaseStatus.APPROVED.value, None) == "EXECUTE_ACTION"
+    assert reader._attention(CaseStatus.APPROVED.value, None, None) == "NO_ACTION"
+    ready_action = SimpleNamespace(status=ActionStatus.READY.value)
+    assert reader._attention(CaseStatus.APPROVED.value, None, ready_action) == "EXECUTE_ACTION"
     assert reader._attention(CaseStatus.VERIFYING.value, None) == "REVIEW_OUTCOME"
     assert reader._attention(CaseStatus.CLOSED.value, None) == "NO_ACTION"
 
