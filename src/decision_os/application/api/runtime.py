@@ -7,6 +7,7 @@ from decision_os.application.api.app import create_app
 from decision_os.application.api.dependencies import PrincipalProvider
 from decision_os.application.ports.authority import AuthorizationPort
 from decision_os.infrastructure.authentication.oidc_jwt import OIDCJWTPrincipalProvider
+from decision_os.infrastructure.persistence.authorization import SQLAlchemyAuthorizationAdapter
 from decision_os.infrastructure.persistence.readers.decision_work_queue import SessionFactoryDecisionWorkQueueReader
 from decision_os.infrastructure.persistence.resolvers.external_identity import SQLAlchemyExternalIdentityResolver
 from decision_os.infrastructure.persistence.runtime_composition import SessionScopedCreateDecisionCaseBoundary
@@ -15,23 +16,26 @@ from decision_os.infrastructure.persistence.runtime_composition import SessionSc
 def build_runtime_app(
     *,
     database_url: str | None,
-    authorization: AuthorizationPort,
+    authorization: AuthorizationPort | None = None,
     principal_provider: PrincipalProvider | None = None,
 ) -> FastAPI:
-    """Build runtime composition with explicit authorization and authentication.
+    """Build runtime composition with fail-closed database-backed RBAC by default.
 
-    If no provider is injected, a configured OIDC/JWT provider is built from
-    environment settings and a database-backed external identity resolver.
-    Database migrations must be applied separately.
+    An explicitly injected AuthorizationPort may replace RBAC (for example, an
+    enterprise policy adapter). Otherwise, SQLAlchemyAuthorizationAdapter checks
+    active actors, tenant memberships, role assignments, and permission grants.
+    If no principal provider is injected, configured OIDC/JWT validation and the
+    database-backed external identity resolver are wired automatically.
+    Database migrations and trusted membership provisioning must happen separately.
     """
     if not database_url or not database_url.strip():
         raise RuntimeError("SQLALCHEMY_DATABASE_URL is required to start the Decision OS runtime")
-    if authorization is None:
-        raise RuntimeError("an explicit AuthorizationPort implementation is required")
 
     engine = create_engine(database_url, pool_pre_ping=True)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
     try:
+        if authorization is None:
+            authorization = SQLAlchemyAuthorizationAdapter(session_factory)
         if principal_provider is None:
             resolver = SQLAlchemyExternalIdentityResolver(session_factory)
             principal_provider = OIDCJWTPrincipalProvider.from_environment(resolver=resolver)

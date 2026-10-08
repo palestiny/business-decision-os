@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.infrastructure.authentication.oidc_jwt import ExternalIdentity
+from decision_os.infrastructure.persistence.models.authorization import ActorModel
 from decision_os.infrastructure.persistence.models.external_identity import ExternalIdentityMappingModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 from decision_os.infrastructure.persistence.resolvers.external_identity import SQLAlchemyExternalIdentityResolver
@@ -20,13 +21,17 @@ pytestmark = pytest.mark.skipif(
 def test_postgres_resolver_requires_exact_active_server_managed_mapping():
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
-    tenant_id, actor_id = uuid4(), uuid4()
+    tenant_id, actor_id, disabled_actor_id = uuid4(), uuid4(), uuid4()
     issuer = f"https://issuer-{uuid4()}.example.test"
     subject = f"subject-{uuid4()}"
     tenant_key = f"org-{uuid4()}"
     try:
         with factory() as session:
             session.add(TenantModel(id=tenant_id, name=f"identity-resolver-{tenant_id}"))
+            session.add_all([
+                ActorModel(id=actor_id, is_active=True),
+                ActorModel(id=disabled_actor_id, is_active=True),
+            ])
             session.flush()
             session.add_all([
                 ExternalIdentityMappingModel(
@@ -35,7 +40,7 @@ def test_postgres_resolver_requires_exact_active_server_managed_mapping():
                 ),
                 ExternalIdentityMappingModel(
                     issuer=issuer, subject=f"disabled-{subject}", tenant_key=tenant_key,
-                    actor_id=uuid4(), tenant_id=tenant_id, is_active=False,
+                    actor_id=disabled_actor_id, tenant_id=tenant_id, is_active=False,
                 ),
             ])
             session.commit()

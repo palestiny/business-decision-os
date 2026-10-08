@@ -2,6 +2,7 @@ import pytest
 from fastapi import FastAPI
 
 from decision_os.application.api import runtime
+from decision_os.infrastructure.persistence.authorization import SQLAlchemyAuthorizationAdapter
 
 
 def test_runtime_requires_explicit_oidc_configuration_when_provider_is_not_injected(monkeypatch):
@@ -44,6 +45,25 @@ def test_runtime_injects_configured_oidc_provider_when_no_provider_is_supplied(m
         assert isinstance(captured["resolver"], Resolver)
         assert captured["resolver_session_factory"] is not None
     finally:
-        # Trigger the registered shutdown callback to dispose the test engine.
+        for handler in app.router.on_shutdown:
+            handler()
+
+
+def test_runtime_defaults_to_database_backed_fail_closed_authorization(monkeypatch):
+    captured = {}
+
+    def create_app(**kwargs):
+        captured["app_kwargs"] = kwargs
+        return FastAPI()
+
+    monkeypatch.setattr(runtime, "create_app", create_app)
+    app = runtime.build_runtime_app(
+        database_url="sqlite+pysqlite:///:memory:",
+        principal_provider=lambda request: None,
+    )
+    try:
+        boundary = captured["app_kwargs"]["create_case_boundary"]
+        assert isinstance(boundary._authorization, SQLAlchemyAuthorizationAdapter)
+    finally:
         for handler in app.router.on_shutdown:
             handler()

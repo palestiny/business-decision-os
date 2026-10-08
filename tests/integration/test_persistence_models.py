@@ -6,10 +6,11 @@ from decision_os.infrastructure.persistence import models  # noqa: F401
 
 def test_metadata_contains_required_persistence_tables() -> None:
     expected = {
-        "tenants", "decision_cases", "decision_options", "decisions",
-        "decision_selected_options", "idempotency_records", "audit_events", "outbox_messages",
-        "evidence", "analysis_findings", "expected_outcomes", "actual_outcomes", "verifications",
-        "external_identity_mappings",
+        "tenants", "actors", "tenant_memberships", "authorization_roles",
+        "authorization_role_permissions", "membership_role_assignments",
+        "decision_cases", "decision_options", "decisions", "decision_selected_options",
+        "idempotency_records", "audit_events", "outbox_messages", "evidence", "analysis_findings",
+        "expected_outcomes", "actual_outcomes", "verifications", "external_identity_mappings",
     }
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

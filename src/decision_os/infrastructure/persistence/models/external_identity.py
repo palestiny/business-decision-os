@@ -15,7 +15,9 @@ class ExternalIdentityMappingModel(Base):
     issuer: Mapped[str] = mapped_column(String(500), nullable=False)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
     tenant_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    actor_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    actor_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("actors.id", ondelete="RESTRICT"), nullable=False
+    )
     tenant_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
