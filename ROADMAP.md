@@ -112,10 +112,11 @@
 - [x] PostgreSQL rollback verification when Outbox write fails (CI #862/#863)
 - [x] OIDC/JWT adapter plus database-backed external identity resolver and runtime auto-wiring (CI #938/#939 passed, Python 3.12/3.13)
 - [ ] Deployment-specific authentication configuration and trusted identity-mapping provisioning policy
+- [ ] Decide authorization model (recommended tenant-scoped RBAC) — `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
-**Status: Read-only queue PASS; first runtime composition slice implemented and CI-verified; runtime gate remains open.** Evidence: CI #844 https://github.com/palestiny/business-decision-os/actions/runs/37853330867 and CI #845 https://github.com/palestiny/business-decision-os/actions/runs/37853337025 for initial composition; CI #870 https://github.com/palestiny/business-decision-os/actions/runs/37856028446 and CI #871 https://github.com/palestiny/business-decision-os/actions/runs/37856033069 verify overlapping PostgreSQL-backed HTTP creates on Python 3.12/3.13. Rollback verification passed in CI #862/#863. OIDC runtime auto-wiring, database identity mapping, HTTP rejection tests, and Alembic migration checks passed CI #938/#939 on Python 3.12/3.13. Remaining work is tracked in `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md` and `docs/checkpoints/CHECKPOINT-038.md`.
+**Status: Read-only queue PASS; first runtime composition slice implemented and CI-verified; runtime gate remains open.** Evidence: CI #844 https://github.com/palestiny/business-decision-os/actions/runs/37853330867 and CI #845 https://github.com/palestiny/business-decision-os/actions/runs/37853337025 for initial composition; CI #870 https://github.com/palestiny/business-decision-os/actions/runs/37856028446 and CI #871 https://github.com/palestiny/business-decision-os/actions/runs/37856033069 verify overlapping PostgreSQL-backed HTTP creates on Python 3.12/3.13. Rollback verification passed in CI #862/#863. OIDC runtime auto-wiring, database identity mapping, HTTP rejection tests, and Alembic migration checks passed CI #938/#939 on Python 3.12/3.13. Remaining work is tracked in `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`, and `docs/checkpoints/CHECKPOINT-038.md`.
 
 ## Explicitly deferred
 - AI agents and AI authority
