@@ -22,7 +22,7 @@ def upgrade() -> None:
         sa.Column("tenant_key", sa.String(255), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("tenant_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.UniqueConstraint("issuer", "subject", "tenant_key", name="uq_external_identity_mapping_key"),
     )
     op.create_index("ix_external_identity_mappings_tenant_id", "external_identity_mappings", ["tenant_id"])
