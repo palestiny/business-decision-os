@@ -179,11 +179,14 @@ def test_decision_history_denies_actor_without_read_permission():
         def require(self, **kwargs):
             raise AuthorizationDenied("no read permission")
 
+    def principal_provider(request: Request):
+        return principal
+
     app = create_app(
         create_case_boundary=object(),
         authorization=DenyAuthorization(),
         decision_memory_reader=FakeDecisionMemoryReader(None),
-        principal_provider=lambda request: principal,
+        principal_provider=principal_provider,
     )
     response = TestClient(app).get(f"/api/v1/decision-cases/{uuid4()}/history")
 
