@@ -62,10 +62,10 @@ def test_create_case_boundary_uses_one_session_for_uow_and_reliability_adapters(
 
     assert result == "created"
     assert [entry[0] for entry in calls] == [
-        "session", "enter", "uow", "Idempotency", "Audit", "Outbox", "handler", "boundary", "execute", "exit"
+        "session", "enter", "uow", "handler", "Idempotency", "Audit", "Outbox", "boundary", "execute", "exit"
     ]
     assert all(entry[1] is session for entry in calls if entry[0] in {"uow", "Idempotency", "Audit", "Outbox"})
-    assert calls[6] == ("handler", calls[2][1], authorization)
+    assert calls[3] == ("handler", calls[2][1], authorization)
     assert calls[8][2] == "request-1"
     assert calls[-1] == ("exit", None)
 
