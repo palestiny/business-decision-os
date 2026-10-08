@@ -24,11 +24,11 @@
 
 ## Authentication adapter progress
 - Added `OIDCJWTPrincipalProvider` using PyJWT/JWKS, fixed RS256 algorithm, explicit issuer/audience/JWKS/tenant claim configuration, bounded clock skew, and a resolver contract that maps external identities to internal UUIDs.
-- Added unit coverage for valid mapping, missing/non-bearer credentials, invalid issuer/audience/expiry/claims, unknown mapping, and bad signatures. CI Runs #884–#891 are pending at checkpoint authoring time; do not count these tests as verified until those runs complete.
+- Added unit coverage for valid mapping, missing/non-bearer credentials, invalid issuer/audience/expiry/claims, unknown mapping, and bad signatures. CI Runs #890 and #891 passed on Python 3.12 and 3.13 for commit `da5ead3c81e3cd170536d1dda1d6e9b4a915dfcc`: https://github.com/palestiny/business-decision-os/actions/runs/37857658649 and https://github.com/palestiny/business-decision-os/actions/runs/37857662934.
 - The deployment's actual identity provider configuration and production resolver implementation remain open.
 
 ## Remaining before gate closure
-1. Verify the OIDC adapter test suite in CI on Python 3.12 and 3.13, fixing any failures.
+1. Run CI on the current documentation HEAD and keep the OIDC adapter suite green on Python 3.12 and 3.13.
 2. Configure the deployment issuer/audience/JWKS/tenant claim and implement a production-grade external identity resolver.
 3. Wire the configured provider into the runtime entry point and test invalid-token rejection over HTTP.
 4. Compose further command routes only after their authorization, transaction, and lifecycle dependencies are explicitly wired.
