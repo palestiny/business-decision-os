@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.infrastructure.persistence import models  # noqa: F401
 from decision_os.infrastructure.persistence.base import Base
-from decision_os.infrastructure.persistence.models.authorization import ActorModel, RoleModel, TenantMembershipModel
+from decision_os.infrastructure.persistence.models.authorization import ActorModel, RoleModel, RolePermissionModel, TenantMembershipModel
 from decision_os.infrastructure.persistence.models.authorization_admin_audit import AuthorizationAdminAuditModel
 from decision_os.infrastructure.persistence.models.external_identity import ExternalIdentityMappingModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
@@ -22,6 +22,7 @@ def _setup():
         session.add_all([
             TenantModel(id=tenant_id, name="Test tenant"),
             RoleModel(id=role_id, key="decision_author", name="Decision Author", is_active=True),
+            RolePermissionModel(role_id=role_id, permission="CREATE_CASE"),
         ])
         session.commit()
     return engine, factory, tenant_id
