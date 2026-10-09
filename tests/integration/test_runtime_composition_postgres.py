@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -350,6 +350,38 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert evidence_response.json()["data"]["id"] == str(evidence_id)
             assert evidence_response.headers["X-Correlation-ID"] == evidence_response.json()["correlation_id"]
 
+            finding_id = uuid4()
+            finding_key = f"runtime-analysis-finding-{uuid4()}"
+            finding_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/analysis/findings",
+                headers={"Idempotency-Key": finding_key},
+                json={
+                    "finding_id": str(finding_id),
+                    "kind": "FACT",
+                    "statement": "Forecast margin is below the approved threshold.",
+                    "confidence": 0.97,
+                    "evidence_ids": [str(evidence_id)],
+                },
+            )
+            assert finding_response.status_code == 201, finding_response.text
+            assert finding_response.json()["data"]["id"] == str(finding_id)
+            assert finding_response.json()["data"]["evidence_ids"] == [str(evidence_id)]
+            assert finding_response.headers["X-Correlation-ID"] == finding_response.json()["correlation_id"]
+
+            finding_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/analysis/findings",
+                headers={"Idempotency-Key": finding_key},
+                json={
+                    "finding_id": str(finding_id),
+                    "kind": "FACT",
+                    "statement": "Forecast margin is below the approved threshold.",
+                    "confidence": 0.97,
+                    "evidence_ids": [str(evidence_id)],
+                },
+            )
+            assert finding_replay.status_code == 201, finding_replay.text
+            assert finding_replay.json()["data"]["id"] == str(finding_id)
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -372,5 +404,17 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert evidence_row is not None
             assert evidence_row.metric == "forecast_margin"
             assert evidence_row.value == "12.5"
+
+            from decision_os.infrastructure.persistence.models.evidence import AnalysisFindingModel
+            finding_row = session.scalar(
+                select(AnalysisFindingModel).where(
+                    AnalysisFindingModel.id == finding_id,
+                    AnalysisFindingModel.tenant_id == tenant_id,
+                    AnalysisFindingModel.case_id == UUID(case_id),
+                )
+            )
+            assert finding_row is not None
+            assert finding_row.kind == "FACT"
+            assert finding_row.statement == "Forecast margin is below the approved threshold."
     finally:
         engine.dispose()
