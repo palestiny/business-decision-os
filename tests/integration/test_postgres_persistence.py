@@ -309,7 +309,7 @@ def test_decision_repository_persists_approval_and_rejection_status(session: Ses
     repository.add(decision)
     session.commit()
 
-    decision.approve()
+    decision.approve(actor_id=uuid4(), approved_at=datetime.now(timezone.utc))
     repository.save(decision, tenant_id)
     session.commit()
 
@@ -938,6 +938,7 @@ def test_approve_decision_http_postgres_replay_persists_approval_and_single_side
     seed_tenant(session, tenant_id)
 
     case = make_case(tenant_id)
+    case.created_by = uuid4()
     case.status = CaseStatus.AWAITING_APPROVAL
     case.version = 2
     case_repository = SQLAlchemyDecisionCaseRepository(session)
@@ -990,10 +991,14 @@ def test_approve_decision_http_postgres_replay_persists_approval_and_single_side
     assert first.json()["data"] == replay.json()["data"]
     assert first.json()["correlation_id"] != replay.json()["correlation_id"]
     assert first.json()["data"]["status"] == "APPROVED"
+    assert first.json()["data"]["approved_by"] == str(actor_id)
+    assert first.json()["data"]["approved_at"]
 
     persisted_decision = SQLAlchemyDecisionRepository(session).get(decision_id, tenant_id)
     assert persisted_decision is not None
     assert persisted_decision.status.value == "APPROVED"
+    assert persisted_decision.approved_by == actor_id
+    assert persisted_decision.approved_at is not None
     persisted_case = session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case.id))
     assert persisted_case is not None
     assert persisted_case.status == "APPROVED"

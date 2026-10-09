@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
 
-from decision_os.application.ports.authority import AuthorizationPort, Permission
+from decision_os.application.ports.authority import AuthorizationPort, Permission, SeparationOfDutiesViolation
 from decision_os.application.ports.unit_of_work import UnitOfWork
 from decision_os.domain.decision import Decision
 
@@ -35,7 +36,14 @@ class ApproveDecisionHandler:
         if decision is None or decision.case_id != case.id:
             raise ValueError("decision not found")
 
-        decision.approve()
+        if case.created_by is None:
+            raise SeparationOfDutiesViolation("cannot approve a case without recorded creator attribution")
+        if command.actor_id == case.created_by:
+            raise SeparationOfDutiesViolation("case creator cannot approve the decision")
+        if command.actor_id == decision.decided_by:
+            raise SeparationOfDutiesViolation("decision maker cannot approve their own decision")
+
+        decision.approve(actor_id=command.actor_id, approved_at=datetime.now(timezone.utc))
         self._uow.decisions.save(decision, command.tenant_id)
         case.approve()
         self._uow.decision_cases.save(case)

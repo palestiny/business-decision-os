@@ -17,11 +17,11 @@ class SQLAlchemyDecisionCaseRepository:
         model = self._session.scalar(select(DecisionCaseModel).where(DecisionCaseModel.id == case_id, DecisionCaseModel.tenant_id == tenant_id))
         if model is None:
             return None
-        return DecisionCase(id=model.id, tenant_id=model.tenant_id, case_type=model.case_type, title=model.title, status=CaseStatus(model.status), version=model.version)
+        return DecisionCase(id=model.id, tenant_id=model.tenant_id, case_type=model.case_type, title=model.title, created_by=model.created_by, status=CaseStatus(model.status), version=model.version)
 
     def add(self, case: DecisionCase) -> None:
         now = datetime.now(timezone.utc)
-        self._session.add(DecisionCaseModel(id=case.id, tenant_id=case.tenant_id, case_type=case.case_type, title=case.title, status=case.status.value, version=case.version, created_at=now, updated_at=now))
+        self._session.add(DecisionCaseModel(id=case.id, tenant_id=case.tenant_id, case_type=case.case_type, title=case.title, created_by=case.created_by, status=case.status.value, version=case.version, created_at=now, updated_at=now))
 
     def save(self, case: DecisionCase, *, expected_version: int | None = None) -> None:
         expected_previous_version = case.version - 1 if expected_version is None else expected_version

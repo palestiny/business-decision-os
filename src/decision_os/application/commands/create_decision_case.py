@@ -34,6 +34,7 @@ class CreateDecisionCaseHandler:
             tenant_id=command.tenant_id,
             case_type=command.case_type,
             title=command.title,
+            created_by=command.actor_id,
         )
         self._uow.decision_cases.add(case)
         return case

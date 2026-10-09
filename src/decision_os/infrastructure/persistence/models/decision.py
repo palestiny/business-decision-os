@@ -28,6 +28,8 @@ class DecisionModel(Base):
     authority_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     approval_required: Mapped[bool] = mapped_column(nullable=False, default=False)
+    approved_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (UniqueConstraint("case_id", name="uq_decisions_case_id"),)
 

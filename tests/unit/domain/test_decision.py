@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -68,9 +69,13 @@ def test_approval_moves_decision_to_approved() -> None:
         approval_required=True,
     )
 
-    decision.approve()
+    approver_id = uuid4()
+    approved_at = datetime.now(timezone.utc)
+    decision.approve(actor_id=approver_id, approved_at=approved_at)
 
     assert decision.status is DecisionStatus.APPROVED
+    assert decision.approved_by == approver_id
+    assert decision.approved_at == approved_at
 
 
 def test_decision_without_required_approval_is_immediately_approved() -> None:

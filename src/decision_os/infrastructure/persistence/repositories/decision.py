@@ -42,6 +42,8 @@ class SQLAlchemyDecisionRepository:
             status=DecisionStatus(model.status),
             decided_by=model.decided_by,
             _approval_required=model.approval_required,
+            approved_by=model.approved_by,
+            approved_at=model.approved_at,
             policy_ids=tuple(UUID(value) for value in (json.loads(model.authority_snapshot or "{}").get("policy_ids", []))),
         )
 
@@ -56,6 +58,8 @@ class SQLAlchemyDecisionRepository:
             decided_at=now,
             created_at=now,
             approval_required=decision.approval_required,
+            approved_by=decision.approved_by,
+            approved_at=decision.approved_at,
             authority_snapshot=json.dumps({
                 "approval_required": decision.approval_required,
                 "policy_ids": [str(policy_id) for policy_id in decision.policy_ids],
@@ -78,3 +82,5 @@ class SQLAlchemyDecisionRepository:
         if model is None:
             raise ValueError("decision not found")
         model.status = decision.status.value
+        model.approved_by = decision.approved_by
+        model.approved_at = decision.approved_at

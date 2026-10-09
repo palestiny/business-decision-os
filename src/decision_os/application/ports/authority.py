@@ -31,6 +31,10 @@ class AuthorizationDenied(PermissionError):
     """Raised when the actor lacks required authority."""
 
 
+class SeparationOfDutiesViolation(AuthorizationDenied):
+    """Raised when a permitted action violates independent-approval policy."""
+
+
 class PolicyEvaluationUnavailable(RuntimeError):
     """Raised when approval policy evaluation cannot produce a trustworthy result."""
 

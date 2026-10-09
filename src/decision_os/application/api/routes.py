@@ -138,6 +138,8 @@ def _decision_response(decision, correlation_id: UUID) -> dict[str, object]:
             "status": decision.status.value,
             "decided_by": str(decision.decided_by),
             "approval_required": decision.approval_required,
+            "approved_by": str(decision.approved_by) if decision.approved_by else None,
+            "approved_at": decision.approved_at.isoformat() if decision.approved_at else None,
             "policy_ids": [str(value) for value in decision.policy_ids],
         },
         "correlation_id": str(correlation_id),

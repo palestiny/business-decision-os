@@ -1,5 +1,6 @@
 """Decision and option domain objects."""
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -42,6 +43,8 @@ class Decision:
     decided_by: UUID | None = None
     _approval_required: bool = field(default=False, repr=False)
     policy_ids: tuple[UUID, ...] = ()
+    approved_by: UUID | None = None
+    approved_at: datetime | None = None
 
     @classmethod
     def make(
@@ -71,12 +74,16 @@ class Decision:
     def approval_required(self) -> bool:
         return self._approval_required
 
-    def approve(self) -> None:
+    def approve(self, *, actor_id: UUID, approved_at: datetime) -> None:
         if not self._approval_required:
             raise InvalidDecision("decision does not require approval")
         if self.status is not DecisionStatus.AWAITING_APPROVAL:
             raise InvalidDecision("only pending decisions can be approved")
+        if actor_id == self.decided_by:
+            raise InvalidDecision("decision maker cannot approve their own decision")
         self.status = DecisionStatus.APPROVED
+        self.approved_by = actor_id
+        self.approved_at = approved_at
 
     def reject(self) -> None:
         if self.status is not DecisionStatus.AWAITING_APPROVAL:

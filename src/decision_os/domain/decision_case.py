@@ -37,14 +37,15 @@ class DecisionCase:
     tenant_id: UUID
     case_type: str
     title: str
+    created_by: UUID | None = None
     status: CaseStatus = CaseStatus.DETECTED
     version: int = 0
 
     @classmethod
-    def create(cls, *, id: UUID, tenant_id: UUID, case_type: str, title: str) -> "DecisionCase":
+    def create(cls, *, id: UUID, tenant_id: UUID, case_type: str, title: str, created_by: UUID | None = None) -> "DecisionCase":
         if not case_type.strip(): raise DomainError("case_type is required")
         if not title.strip(): raise DomainError("title is required")
-        return cls(id=id, tenant_id=tenant_id, case_type=case_type, title=title)
+        return cls(id=id, tenant_id=tenant_id, case_type=case_type, title=title, created_by=created_by)
 
     def triage(self) -> None: self._transition(CaseStatus.TRIAGED)
     def start_analysis(self) -> None: self._transition(CaseStatus.ANALYZING)

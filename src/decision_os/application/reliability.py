@@ -95,6 +95,7 @@ class CreateDecisionCaseReliabilityBoundary:
                 "tenant_id": str(case.tenant_id),
                 "case_type": case.case_type,
                 "title": case.title,
+                "created_by": str(case.created_by) if case.created_by else None,
                 "status": case.status.value,
                 "version": case.version,
             },
@@ -113,6 +114,7 @@ class CreateDecisionCaseReliabilityBoundary:
             tenant_id=UUID(data["tenant_id"]),
             case_type=data["case_type"],
             title=data["title"],
+            created_by=UUID(data["created_by"]) if data.get("created_by") else None,
             status=CaseStatus(data["status"]),
             version=data["version"],
         )

@@ -1,6 +1,7 @@
 """Application reliability boundary for approving decisions."""
 import hashlib
 import json
+from datetime import datetime
 from uuid import UUID
 
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand, ApproveDecisionHandler
@@ -92,6 +93,8 @@ class ApproveDecisionReliabilityBoundary:
                 "status": decision.status.value,
                 "decided_by": str(decision.decided_by),
                 "approval_required": decision.approval_required,
+                "approved_by": str(decision.approved_by) if decision.approved_by else None,
+                "approved_at": decision.approved_at.isoformat() if decision.approved_at else None,
                 "policy_ids": [str(value) for value in decision.policy_ids],
             },
             sort_keys=True,
@@ -110,5 +113,7 @@ class ApproveDecisionReliabilityBoundary:
             status=DecisionStatus(data["status"]),
             decided_by=UUID(data["decided_by"]),
             _approval_required=bool(data["approval_required"]),
+            approved_by=UUID(data["approved_by"]) if data.get("approved_by") else None,
+            approved_at=datetime.fromisoformat(data["approved_at"]) if data.get("approved_at") else None,
             policy_ids=tuple(UUID(value) for value in data["policy_ids"]),
         )
