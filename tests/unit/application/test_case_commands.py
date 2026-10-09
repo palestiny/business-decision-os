@@ -98,6 +98,7 @@ def test_create_case_requires_authority_without_committing():
     assert authorization.calls[0] == {
         "actor_id": actor_id, "tenant_id": tenant_id,
         "permission": Permission.CREATE_CASE, "resource_id": result.id,
+        "correlation_id": None,
     }
 
 
@@ -197,6 +198,7 @@ def test_approve_decision_requires_authority_and_persists_by_tenant():
     assert authorization.calls == [{
         "actor_id": actor_id, "tenant_id": case.tenant_id,
         "permission": Permission.APPROVE_DECISION, "resource_id": case.id,
+        "correlation_id": None,
     }]
 
 
@@ -224,4 +226,5 @@ def test_reject_decision_requires_authority_and_persists_rejection_without_commi
     assert authorization.calls == [{
         "actor_id": actor_id, "tenant_id": case.tenant_id,
         "permission": Permission.REJECT_DECISION, "resource_id": case.id,
+        "correlation_id": None,
     }]
