@@ -487,3 +487,43 @@ def test_start_action_boundary_uses_one_session_for_all_adapters(monkeypatch):
     handler_call = next(call for call in calls if call[0] == "handler")
     assert handler_call[2] is authorization
     assert calls[-1] == ("exit", None)
+
+
+def test_complete_execution_boundary_uses_one_session_for_all_adapters(monkeypatch):
+    from decision_os.application.commands.complete_action_execution import CompleteActionExecutionCommand
+    from decision_os.domain.action import ActionExecutionStatus
+    from decision_os.infrastructure.persistence import runtime_composition
+
+    session, calls = object(), []
+    class Uow:
+        def __init__(self, supplied): calls.append(("uow", supplied))
+    class Adapter:
+        def __init__(self, supplied): calls.append((self.__class__.__name__, supplied))
+    class Handler:
+        def __init__(self, uow, authorization): calls.append(("handler", uow, authorization))
+    class Boundary:
+        def __init__(self, **kwargs): calls.append(("boundary", kwargs))
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            calls.append(("execute", command, idempotency_key, correlation_id)); return "succeeded-execution"
+    class SessionContext:
+        def __enter__(self): return session
+        def __exit__(self, exc_type, exc, traceback): calls.append(("exit", exc_type)); return False
+    class SessionFactory:
+        def __call__(self): return SessionContext()
+
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyUnitOfWork", Uow)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyIdempotencyRepository", type("Idempotency", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyAuditRepository", type("Audit", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyOutboxRepository", type("Outbox", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "CompleteActionExecutionHandler", Handler)
+    monkeypatch.setattr(runtime_composition, "CompleteActionExecutionReliabilityBoundary", Boundary)
+
+    authorization = object()
+    provider = runtime_composition.SessionScopedCompleteActionExecutionBoundary(session_factory=SessionFactory(), authorization=authorization)
+    command = CompleteActionExecutionCommand(
+        tenant_id=uuid4(), execution_id=uuid4(), actor_id=uuid4(), outcome=ActionExecutionStatus.SUCCEEDED
+    )
+    assert provider.execute(command, idempotency_key="complete-execution-1") == "succeeded-execution"
+    handler_call = next(call for call in calls if call[0] == "handler")
+    assert handler_call[2] is authorization
+    assert calls[-1] == ("exit", None)

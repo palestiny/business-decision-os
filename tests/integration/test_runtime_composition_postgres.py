@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.UPDATE_EXECUTION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
@@ -586,6 +586,23 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert execution_replay.json()["data"]["id"] == execution_response.json()["data"]["id"]
             assert execution_replay.json()["data"]["status"] == "RUNNING"
 
+            execution_id = execution_response.json()["data"]["id"]
+            completion_key = f"runtime-complete-execution-{uuid4()}"
+            completion_response = approver_client.post(
+                f"/api/v1/action-executions/{execution_id}/complete?outcome=SUCCEEDED",
+                headers={"Idempotency-Key": completion_key},
+            )
+            assert completion_response.status_code == 200, completion_response.text
+            assert completion_response.json()["data"]["id"] == execution_id
+            assert completion_response.json()["data"]["status"] == "SUCCEEDED"
+            assert completion_response.headers["X-Correlation-ID"] == completion_response.json()["correlation_id"]
+            completion_replay = approver_client.post(
+                f"/api/v1/action-executions/{execution_id}/complete?outcome=SUCCEEDED",
+                headers={"Idempotency-Key": completion_key},
+            )
+            assert completion_replay.status_code == 200, completion_replay.text
+            assert completion_replay.json()["data"]["status"] == "SUCCEEDED"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -594,8 +611,8 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
                 )
             )
             assert case_row is not None
-            assert case_row.status == "EXECUTING"
-            assert case_row.version == 8
+            assert case_row.status == "OUTCOME_PENDING"
+            assert case_row.version == 9
 
             from decision_os.infrastructure.persistence.models.decision import DecisionModel
             decision_row = session.scalar(select(DecisionModel).where(DecisionModel.id == decision_id))
@@ -610,15 +627,15 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert action_row is not None
             assert action_row.case_id == UUID(case_id)
             assert action_row.decision_id == decision_id
-            assert action_row.status == "EXECUTING"
-            assert action_row.version == 2
+            assert action_row.status == "COMPLETED"
+            assert action_row.version == 3
 
             from decision_os.infrastructure.persistence.models.action import ActionExecutionModel
             execution_row = session.get(ActionExecutionModel, UUID(execution_response.json()["data"]["id"]))
             assert execution_row is not None
             assert execution_row.action_id == action_id
             assert execution_row.attempt == 1
-            assert execution_row.status == "RUNNING"
+            assert execution_row.status == "SUCCEEDED"
 
             from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
             persisted_options = session.scalars(

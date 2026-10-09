@@ -128,6 +128,7 @@
 - [x] Compose reject-decision with request-scoped UoW, RBAC, idempotency, audit/outbox, and PostgreSQL rejection/replay checks; CI #1067/#1068 passed on Python 3.12/3.13.
 - [x] Compose create-action with approval preconditions, RBAC, idempotency, audit/outbox, and PostgreSQL persistence/replay; CI #1071/#1072 passed on Python 3.12/3.13.
 - [x] Compose start-action with READY/APPROVED preconditions, execution attempt persistence, case/action version transitions, and idempotent replay; CI #1075/#1076 passed on Python 3.12/3.13.
+- [ ] Compose complete-action-execution and verify SUCCEEDED/FAILED handling, action/case transitions, and replay.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
