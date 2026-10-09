@@ -116,7 +116,7 @@
 - [x] Implement offline CLI provision/show/revoke with dry-run confirmation and durable admin audit; CI #983 passed on Python 3.12/3.13 (193 tests each) — `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`, `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_DECISION_AUDIT_DESIGN_GATE.md`
 - [x] Enforce four-eyes approval attribution and denial for creator/decision-maker/legacy cases; CI #995/#996 passed on Python 3.12/3.13 (200 tests each) — `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`
 - [x] Implement durable allow/deny authorization decision audit with fail-closed persistence; CI #1011/#1012 passed. Command correlation propagation verified in CI #1023/#1024 (204 tests per Python version) — `docs/gates/AUTHORIZATION_DECISION_AUDIT_DESIGN_GATE.md`.
-- [ ] Approve audit retention/access defaults in `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`.
+- [x] Approve audit retention/access defaults: 365 days searchable by default, restricted security/operations access, no public query API, and cleanup disabled pending legal-hold/archive design. Deployment backup/restore and privileged-access evidence remain open — `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 

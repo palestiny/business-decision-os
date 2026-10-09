@@ -51,6 +51,13 @@
 - Added unit tests for allow/deny persistence and fail-closed audit-write failure, plus PostgreSQL integration for durable attribution.
 - CI Runs #1011/#1012 passed on Python 3.12 and 3.13 at commit `da4c67045073191df7307c88a2ea5f232b16cecc`; migration upgrade/downgrade/upgrade, `alembic current --check-heads`, `alembic check`, and pytest all passed.
 
+## Audit retention/access policy decision (approved; operational evidence open)
+- Product owner approved a 365-day searchable default; longer archive requires explicit deployment/customer policy and encryption/access controls.
+- Product owner approved restricted security/operations audit access, with no public audit-query API; tenant admins never receive platform-wide audit access.
+- Automatic deletion/cleanup remains disabled until legal-hold, archive, and active-investigation protections are designed and tested.
+- Deployment-specific backup provider, encrypted PITR/retention, restore drill, RPO/RTO, and database role separation remain open; no production readiness is implied.
+- See `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`.
+
 ## Remaining before runtime/security gate closure
 1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`.
 2. Propagate correlation IDs from API command requests through reliability boundaries into authorization audit rows; read API authorization is correlated, but command-handler authorization is not yet correlated.

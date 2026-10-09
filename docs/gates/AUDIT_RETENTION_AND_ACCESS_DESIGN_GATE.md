@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPEN — OPERATING POLICY REQUIRED BEFORE PRODUCTION ROLLOUT.**
+**POLICY DEFAULTS APPROVED — OPERATIONAL EVIDENCE STILL REQUIRED BEFORE PRODUCTION ROLLOUT.**
 
 Business Decision OS currently persists two separate audit streams:
 
@@ -30,7 +30,7 @@ Both contain internal identifiers and operational metadata. They must not become
 | B. Balanced default | 365 days searchable; any longer archive is deployment/customer-policy driven, encrypted, access-controlled, and subject to documented deletion/legal-hold rules | Useful investigation window without silently imposing indefinite retention; straightforward initial SaaS default | Requires explicit deployment configuration and a controlled retention process |
 | C. Long retention | Seven years online or archived | Long investigation history | Higher cost, broader exposure window, and possible conflict with data-minimization expectations or customer commitments |
 
-**Recommendation: Option B.** Treat 365 days as a proposed product default, not a statement of law. Before deployment, review customer contracts and applicable jurisdictional requirements. Do not add automatic row deletion until the policy and legal-hold behavior are approved.
+**APPROVED — OPTION B (2026-10-09).** Set the product/deployment default to 365 days searchable. Any longer archive must be explicitly configured for the deployment/customer and be encrypted and access-controlled. This is a product default, not a statement of law; review customer contracts and applicable jurisdictional requirements before deployment. No automatic row deletion is authorized by this decision.
 
 ## Access options
 
@@ -40,7 +40,7 @@ Both contain internal identifiers and operational metadata. They must not become
 | B. Split tenant and security access | Initially, no audit-query API; restricted security/operations operators may query through approved tooling. If a tenant-facing view is later added, it uses a dedicated permission and strict tenant scoping; platform security access is separate and audited | Separates tenant visibility from platform-wide incident response | Requires privileged-access governance and audit-query design before product UX is added |
 | C. Tenant Admin access to all audit | Tenant admins can inspect all audit rows | Simple for support | Unsafe cross-tenant exposure; **rejected** |
 
-**Recommendation: Option B.** Until a protected query interface exists, only approved operations/security personnel should have direct audit access. Application/runtime credentials should not be reused for routine human investigation. Tenant Admin remains tenant-scoped and must never have platform-wide access.
+**APPROVED — OPTION B (2026-10-09).** No audit-query API is exposed at this stage. Only explicitly approved security/operations operators may access audit data through approved tooling; runtime credentials must not be reused for routine human investigation. Tenant Admin remains tenant-scoped and never receives platform-wide access. Any future tenant-facing audit reader requires a separate design, permission, tenant-scoping, and audit contract.
 
 ## Backup, restore, and integrity
 
@@ -54,11 +54,19 @@ Both contain internal identifiers and operational metadata. They must not become
 
 ## Decisions required
 
-- [ ] Approve Option B for retention: 365 days searchable by default; longer archive only when deployment/customer/legal policy requires it.
-- [ ] Approve Option B for access: restricted security/operations access now; any future tenant-facing audit reader is a separate, tenant-scoped feature.
-- [ ] Confirm that retention cleanup remains disabled until legal-hold, archive, and deletion behavior are designed.
+- [x] Product owner approved Option B for retention: 365 days searchable by default; longer archive only when deployment/customer/legal policy requires it (2026-10-09).
+- [x] Product owner approved Option B for access: restricted security/operations access now; any future tenant-facing audit reader is a separate, tenant-scoped feature (2026-10-09).
+- [x] Retention cleanup remains disabled until legal-hold, archive, and deletion behavior are designed and tested.
 - [ ] Select deployment backup provider and set encrypted backup/PITR retention plus RPO/RTO before production launch.
 - [ ] Decide whether audit storage/read privileges should be split into separate database roles in the production deployment.
+
+## Approved operating defaults
+
+- Searchable retention default: 365 days, subject to contract/jurisdiction review before a deployment enables it.
+- Longer archive: explicit deployment/customer policy only; encrypted and access-controlled.
+- Cleanup/deletion: disabled until legal-hold, archive, active-investigation protection, and deletion evidence are designed and verified. No scheduled deletion job is authorized by the retention default alone.
+- Audit access: approved security/operations operators only, using dedicated approved tooling/credentials; no public audit-query API and no cross-tenant visibility for Tenant Admin.
+- Backups: encrypted backup/PITR, restore testing, database role separation, and RPO/RTO remain deployment-specific open items; no provider or numeric RPO/RTO has been invented.
 
 ## Acceptance criteria before PASS
 
