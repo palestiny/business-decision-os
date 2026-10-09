@@ -94,7 +94,11 @@ def build_runtime_app(
     )
     # First-release policy is explicit and deterministic: every decision requires
     # independent approval. Deployments may replace it through the PolicyEvaluatorPort.
-    effective_policy_evaluator = policy_evaluator or RequireApprovalForEveryDecisionPolicy()
+    effective_policy_evaluator = (
+        policy_evaluator
+        if policy_evaluator is not None
+        else RequireApprovalForEveryDecisionPolicy()
+    )
     make_decision_boundary = SessionScopedMakeDecisionBoundary(
         session_factory=session_factory,
         authorization=authorization,

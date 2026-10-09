@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.application.api.runtime import build_runtime_app
+from decision_os.application.approval_policy import RequireApprovalForEveryDecisionPolicy
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.ports.authority import ApprovalDecision, Permission
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
@@ -506,6 +507,7 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert decision_response.json()["data"]["id"] == str(decision_id)
             assert decision_response.json()["data"]["status"] == "AWAITING_APPROVAL"
             assert decision_response.json()["data"]["approval_required"] is True
+            assert decision_response.json()["data"]["policy_ids"] == [str(RequireApprovalForEveryDecisionPolicy.POLICY_ID)]
             assert decision_response.headers["X-Correlation-ID"] == decision_response.json()["correlation_id"]
             decision_replay = client.post(
                 f"/api/v1/decision-cases/{case_id}/decision",
@@ -514,6 +516,7 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert decision_replay.status_code == 200, decision_replay.text
             assert decision_replay.json()["data"]["id"] == str(decision_id)
             assert decision_replay.json()["data"]["status"] == "AWAITING_APPROVAL"
+            assert decision_replay.json()["data"]["policy_ids"] == [str(RequireApprovalForEveryDecisionPolicy.POLICY_ID)]
 
         approver_actor_id = uuid4()
         approver_principal = AuthenticatedPrincipal(actor_id=approver_actor_id, tenant_id=tenant_id)
