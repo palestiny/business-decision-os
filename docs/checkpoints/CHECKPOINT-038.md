@@ -5,9 +5,10 @@
 
 ## Delivered
 - Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
-- Engine and Session factory are process-scoped; each create-case and triage-case execution uses a short-lived Session.
-- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case and triage-case share one Session/transaction per command.
+- Engine and Session factory are process-scoped; each create-case, triage-case, and start-analysis execution uses a short-lived Session.
+- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case, triage-case, and start-analysis share one Session/transaction per command.
 - Runtime triage route persists status/version, preserves creator attribution on idempotent replay, propagates request correlation, and rejects cross-tenant case access. CI #1035 passed on Python 3.12/3.13 at commit `b65cfcb89dcd86cf510fe513a8880c2d933fa950`, with 206 tests per version and migration checks passing.
+- Start-analysis is composed in the runtime and tested for persistence, `TRIAGED → ANALYZING`, idempotent replay, creator-attribution serialization, and correlation propagation; CI verification pending.
 - The work-queue reader creates and closes a Session per query, including exceptional query exit.
 - PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue; a second tenant's queue cannot see it.
 - CI Runs #844/#845 passed on Python 3.12 and 3.13 for commit 3e8a1ced033c8f0e97f2a130bd4b6cce169b116f.
@@ -64,7 +65,7 @@
 2. Command authorization correlation propagation is implemented and verified in CI #1023/#1024; no longer an open item.
 3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is composed and CI-verified in #1035.
+4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is CI-verified in #1035 and start-analysis awaits CI.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision

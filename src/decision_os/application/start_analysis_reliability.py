@@ -51,11 +51,11 @@ class StartAnalysisReliabilityBoundary:
 
     @staticmethod
     def _serialize(case: DecisionCase) -> str:
-        return json.dumps({"id": str(case.id), "tenant_id": str(case.tenant_id), "case_type": case.case_type, "title": case.title, "status": case.status.value, "version": case.version}, sort_keys=True)
+        return json.dumps({"id": str(case.id), "tenant_id": str(case.tenant_id), "case_type": case.case_type, "title": case.title, "created_by": str(case.created_by) if case.created_by else None, "status": case.status.value, "version": case.version}, sort_keys=True)
 
     @staticmethod
     def _deserialize(body: str | None) -> DecisionCase:
         if not body:
             raise RuntimeError("completed idempotency record has no response")
         data = json.loads(body)
-        return DecisionCase(id=UUID(data["id"]), tenant_id=UUID(data["tenant_id"]), case_type=data["case_type"], title=data["title"], status=CaseStatus(data["status"]), version=int(data["version"]))
+        return DecisionCase(id=UUID(data["id"]), tenant_id=UUID(data["tenant_id"]), case_type=data["case_type"], title=data["title"], created_by=UUID(data["created_by"]) if data.get("created_by") else None, status=CaseStatus(data["status"]), version=int(data["version"]))

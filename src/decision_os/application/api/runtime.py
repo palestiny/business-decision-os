@@ -13,6 +13,7 @@ from decision_os.infrastructure.persistence.resolvers.external_identity import S
 from decision_os.infrastructure.persistence.runtime_composition import (
     SessionScopedCreateDecisionCaseBoundary,
     SessionScopedTriageCaseBoundary,
+    SessionScopedStartAnalysisBoundary,
 )
 
 
@@ -54,10 +55,15 @@ def build_runtime_app(
         session_factory=session_factory,
         authorization=authorization,
     )
+    start_analysis_boundary = SessionScopedStartAnalysisBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
     queue_reader = SessionFactoryDecisionWorkQueueReader(session_factory)
     app = create_app(
         create_case_boundary=create_case_boundary,
         triage_case_boundary=triage_case_boundary,
+        start_analysis_boundary=start_analysis_boundary,
         decision_work_queue_reader=queue_reader,
         authorization=authorization,
         principal_provider=principal_provider,
