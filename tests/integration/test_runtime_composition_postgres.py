@@ -269,6 +269,8 @@ def test_runtime_triage_route_persists_with_tenant_scope_and_idempotency():
                 f"/api/v1/decision-cases/{case_id}/triage",
                 headers={"Idempotency-Key": f"runtime-cross-tenant-triage-{uuid4()}"},
             )
-            assert denied.status_code == 404, denied.text
+            assert denied.status_code == 409, denied.text
+            assert denied.json()["error"]["code"] == "DOMAIN_CONFLICT"
+            assert case_id not in denied.text
     finally:
         engine.dispose()
