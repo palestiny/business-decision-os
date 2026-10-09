@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -408,6 +408,23 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert options_replay.status_code == 200, options_replay.text
             assert options_replay.json()["data"]["status"] == "OPTIONS_READY"
 
+            await_key = f"runtime-await-decision-{uuid4()}"
+            await_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/await",
+                headers={"Idempotency-Key": await_key},
+            )
+            assert await_response.status_code == 200, await_response.text
+            assert await_response.json()["data"]["status"] == "AWAITING_DECISION"
+            assert await_response.json()["data"]["version"] == 4
+            assert await_response.headers["X-Correlation-ID"] == await_response.json()["correlation_id"]
+
+            await_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/await",
+                headers={"Idempotency-Key": await_key},
+            )
+            assert await_replay.status_code == 200, await_replay.text
+            assert await_replay.json()["data"]["status"] == "AWAITING_DECISION"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -416,8 +433,8 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
                 )
             )
             assert case_row is not None
-            assert case_row.status == "OPTIONS_READY"
-            assert case_row.version == 3
+            assert case_row.status == "AWAITING_DECISION"
+            assert case_row.version == 4
 
             from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
             persisted_options = session.scalars(

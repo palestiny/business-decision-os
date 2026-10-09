@@ -122,6 +122,7 @@
 - [x] Verify create-evidence runtime composition and PostgreSQL end-to-end case progression; CI #1043/#1044 passed on Python 3.12/3.13 with 208 tests per version and migration checks.
 - [x] Verify add-analysis-finding runtime composition and PostgreSQL evidence-linking/replay path; CI #1047/#1048 passed on Python 3.12/3.13 with 208 tests per version and migration checks.
 - [x] Verify submit-options runtime composition and PostgreSQL option/state/idempotency path; CI #1051/#1052 passed on Python 3.12/3.13 with 208 tests per version and migration checks.
+- [ ] Compose await-decision with request-scoped UoW, authorization, idempotency, audit/outbox, and PostgreSQL state/replay/correlation tests.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
