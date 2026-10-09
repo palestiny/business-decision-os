@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.application.api.app import create_app
 from decision_os.application.api.dependencies import PrincipalProvider
+from decision_os.application.approval_policy import RequireApprovalForEveryDecisionPolicy
 from decision_os.application.ports.authority import AuthorizationPort, PolicyEvaluatorPort
 from decision_os.infrastructure.authentication.oidc_jwt import OIDCJWTPrincipalProvider
 from decision_os.infrastructure.persistence.authorization import SQLAlchemyAuthorizationAdapter
@@ -91,9 +92,13 @@ def build_runtime_app(
         session_factory=session_factory,
         authorization=authorization,
     )
-    make_decision_boundary = (
-        SessionScopedMakeDecisionBoundary(session_factory=session_factory, authorization=authorization, policy_evaluator=policy_evaluator)
-        if policy_evaluator is not None else None
+    # First-release policy is explicit and deterministic: every decision requires
+    # independent approval. Deployments may replace it through the PolicyEvaluatorPort.
+    effective_policy_evaluator = policy_evaluator or RequireApprovalForEveryDecisionPolicy()
+    make_decision_boundary = SessionScopedMakeDecisionBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+        policy_evaluator=effective_policy_evaluator,
     )
     approve_decision_boundary = SessionScopedApproveDecisionBoundary(
         session_factory=session_factory, authorization=authorization,

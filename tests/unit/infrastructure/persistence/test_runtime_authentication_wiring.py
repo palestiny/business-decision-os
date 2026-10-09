@@ -67,3 +67,47 @@ def test_runtime_defaults_to_database_backed_fail_closed_authorization(monkeypat
     finally:
         for handler in app.router.on_shutdown:
             handler()
+
+
+def test_runtime_composes_default_require_approval_policy(monkeypatch):
+    from decision_os.application.approval_policy import RequireApprovalForEveryDecisionPolicy
+
+    captured = {}
+
+    def create_app(**kwargs):
+        captured["app_kwargs"] = kwargs
+        return FastAPI()
+
+    monkeypatch.setattr(runtime, "create_app", create_app)
+    app = runtime.build_runtime_app(
+        database_url="sqlite+pysqlite:///:memory:",
+        principal_provider=lambda request: None,
+    )
+    try:
+        boundary = captured["app_kwargs"]["make_decision_boundary"]
+        assert boundary is not None
+        assert isinstance(boundary._policy_evaluator, RequireApprovalForEveryDecisionPolicy)
+    finally:
+        for handler in app.router.on_shutdown:
+            handler()
+
+
+def test_runtime_preserves_explicit_policy_evaluator_override(monkeypatch):
+    captured = {}
+    expected_policy = object()
+
+    def create_app(**kwargs):
+        captured["app_kwargs"] = kwargs
+        return FastAPI()
+
+    monkeypatch.setattr(runtime, "create_app", create_app)
+    app = runtime.build_runtime_app(
+        database_url="sqlite+pysqlite:///:memory:",
+        principal_provider=lambda request: None,
+        policy_evaluator=expected_policy,
+    )
+    try:
+        assert captured["app_kwargs"]["make_decision_boundary"]._policy_evaluator is expected_policy
+    finally:
+        for handler in app.router.on_shutdown:
+            handler()

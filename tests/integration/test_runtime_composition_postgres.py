@@ -362,7 +362,6 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             database_url=DATABASE_URL,
             authorization=AllowCreateCase(),
             principal_provider=principal_provider,
-            policy_evaluator=RequireApprovalPolicy(),
         )
         evidence_id = uuid4()
         with TestClient(app) as client:
