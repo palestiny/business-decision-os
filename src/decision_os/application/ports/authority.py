@@ -46,7 +46,7 @@ class ApprovalDecision:
 
 
 class AuthorizationPort(Protocol):
-    def require(self, *, actor_id: UUID, tenant_id: UUID, permission: Permission, resource_id: UUID) -> None:
+    def require(self, *, actor_id: UUID, tenant_id: UUID, permission: Permission, resource_id: UUID, correlation_id: UUID | None = None) -> None:
         ...
 
 

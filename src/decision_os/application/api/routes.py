@@ -505,7 +505,7 @@ def build_router(
         ) -> dict[str, object]:
             authorization.require(
                 actor_id=principal.actor_id, tenant_id=principal.tenant_id,
-                permission=Permission.VIEW_DECISION_HISTORY, resource_id=case_id,
+                permission=Permission.VIEW_DECISION_HISTORY, resource_id=case_id, correlation_id=request.state.correlation_id,
             )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
             if view is None:
@@ -550,7 +550,7 @@ def build_router(
         ) -> dict[str, object]:
             authorization.require(
                 actor_id=principal.actor_id, tenant_id=principal.tenant_id,
-                permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id,
+                permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id, correlation_id=request.state.correlation_id,
             )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
             if view is None:
@@ -593,7 +593,7 @@ def build_router(
         ) -> dict[str, object]:
             authorization.require(
                 actor_id=principal.actor_id, tenant_id=principal.tenant_id,
-                permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=principal.tenant_id,
+                permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=principal.tenant_id, correlation_id=request.state.correlation_id,
             )
             items = decision_work_queue_reader.list(tenant_id=principal.tenant_id)
             return {

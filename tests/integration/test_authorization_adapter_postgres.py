@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.application.ports.authority import AuthorizationDenied, Permission
 from decision_os.infrastructure.persistence.authorization import SQLAlchemyAuthorizationAdapter
+from decision_os.infrastructure.persistence.models.authorization_decision_audit import AuthorizationDecisionAuditModel
 from decision_os.infrastructure.persistence.models.authorization import (
     ActorModel, MembershipRoleAssignmentModel, RoleModel, TenantMembershipModel,
 )
@@ -114,5 +115,39 @@ def test_postgres_read_only_reviewer_can_read_but_cannot_create_commands():
                 actor_id=actor_id, tenant_id=tenant_id,
                 permission=Permission.CREATE_CASE, resource_id=uuid4(),
             )
+    finally:
+        engine.dispose()
+
+
+
+def test_postgres_authorization_allow_and_deny_are_durably_audited():
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    actor_id, tenant_id, membership_id, resource_id, correlation_id = uuid4(), uuid4(), uuid4(), uuid4(), uuid4()
+    try:
+        with factory() as session:
+            role = session.scalar(select(RoleModel).where(RoleModel.key == "decision_author", RoleModel.is_active.is_(True)))
+            assert role is not None
+            session.add_all([TenantModel(id=tenant_id, name=f"audit-{tenant_id}"), ActorModel(id=actor_id, is_active=True)])
+            session.flush()
+            session.add(TenantMembershipModel(id=membership_id, actor_id=actor_id, tenant_id=tenant_id, is_active=True))
+            session.flush()
+            session.add(MembershipRoleAssignmentModel(membership_id=membership_id, role_id=role.id, is_active=True))
+            session.commit()
+        adapter = SQLAlchemyAuthorizationAdapter(factory)
+        adapter.require(actor_id=actor_id, tenant_id=tenant_id, permission=Permission.CREATE_CASE,
+                        resource_id=resource_id, correlation_id=correlation_id)
+        with pytest.raises(AuthorizationDenied):
+            adapter.require(actor_id=actor_id, tenant_id=tenant_id, permission=Permission.APPROVE_DECISION,
+                            resource_id=resource_id, correlation_id=correlation_id)
+        with factory() as session:
+            rows = session.scalars(select(AuthorizationDecisionAuditModel).where(
+                AuthorizationDecisionAuditModel.correlation_id == correlation_id
+            ).order_by(AuthorizationDecisionAuditModel.outcome)).all()
+            assert [(row.outcome, row.reason_code) for row in rows] == [
+                ("ALLOW", "PERMISSION_GRANTED"), ("DENY", "PERMISSION_NOT_GRANTED")
+            ]
+            assert all(row.actor_id == actor_id and row.tenant_id == tenant_id for row in rows)
+            assert all(row.resource_id == resource_id for row in rows)
     finally:
         engine.dispose()

@@ -1,6 +1,7 @@
 """SQLAlchemy persistence models."""
 from decision_os.infrastructure.persistence.models.action import ActionExecutionModel, ActionModel
 from decision_os.infrastructure.persistence.models.authorization_admin_audit import AuthorizationAdminAuditModel
+from decision_os.infrastructure.persistence.models.authorization_decision_audit import AuthorizationDecisionAuditModel
 from decision_os.infrastructure.persistence.models.authorization import (
     ActorModel, MembershipRoleAssignmentModel, RoleModel, RolePermissionModel, TenantMembershipModel,
 )
@@ -15,7 +16,7 @@ from decision_os.infrastructure.persistence.models.tenant import TenantModel
 
 __all__ = [
     "ActionExecutionModel", "ActionModel", "ActualOutcomeModel", "ExpectedOutcomeModel",
-    "ActorModel", "AnalysisFindingModel", "AuditEventModel", "AuthorizationAdminAuditModel", "DecisionCaseModel", "DecisionModel",
+    "ActorModel", "AnalysisFindingModel", "AuditEventModel", "AuthorizationAdminAuditModel", "AuthorizationDecisionAuditModel", "DecisionCaseModel", "DecisionModel",
     "DecisionMemoryProjectionModel", "DecisionOptionModel", "DecisionSelectedOptionModel", "EvidenceModel",
     "ExternalIdentityMappingModel", "IdempotencyRecordModel", "MembershipRoleAssignmentModel",
     "OutboxMessageModel", "RoleModel", "RolePermissionModel", "TenantMembershipModel", "VerificationModel", "TenantModel",
