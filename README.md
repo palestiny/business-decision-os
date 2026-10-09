@@ -28,3 +28,6 @@ See `docs/gates/HUMAN_DECISION_WORKFLOW_DESIGN_GATE.md` for the queue slice scop
 
 
 - Latest runtime composition: mark-unknown/reconciliation and expected → actual → verified outcomes are composed with request-scoped transactions, authorization, idempotency, audit/outbox, and correlation. CI Runs #1087/#1088 passed on Python 3.12/3.13 at commit `688020042fcdaf6249f1e19b74dc12f37f56b9a2` (218 tests per version; migration checks passed). Deployment and operational controls remain open.
+
+
+- Approval policy is the next open product decision: the make-decision runtime route is composed only when an explicit `PolicyEvaluatorPort` is injected. Recommended first-release default is to require approval for every decision; see `docs/gates/DECISION_APPROVAL_POLICY_DESIGN_GATE.md`.
