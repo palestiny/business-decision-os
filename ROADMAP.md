@@ -113,9 +113,9 @@
 - [x] OIDC/JWT adapter plus database-backed external identity resolver and runtime auto-wiring (CI #938/#939 passed, Python 3.12/3.13)
 - [ ] Deployment-specific authentication configuration and trusted identity-mapping provisioning policy
 - [x] Implement tenant-scoped RBAC, PostgreSQL tests, permission-gated read APIs, and CI verification (#967/#968 on Python 3.12/3.13) — `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`
-- [x] Implement offline CLI provision/show/revoke with dry-run confirmation and durable admin audit; CI #983 passed on Python 3.12/3.13 (193 tests each) — `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`, `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`
+- [x] Implement offline CLI provision/show/revoke with dry-run confirmation and durable admin audit; CI #983 passed on Python 3.12/3.13 (193 tests each) — `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`, `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_DECISION_AUDIT_DESIGN_GATE.md`
 - [x] Enforce four-eyes approval attribution and denial for creator/decision-maker/legacy cases; CI #995/#996 passed on Python 3.12/3.13 (200 tests each) — `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`
-- [ ] Durable audit of allow/deny authorization decisions and role/membership changes outside the provisioning CLI.
+- [ ] Durable audit of allow/deny authorization decisions and role/membership changes outside the provisioning CLI — design gate open; recommended Option B in `docs/gates/AUTHORIZATION_DECISION_AUDIT_DESIGN_GATE.md` awaits product-owner approval.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
