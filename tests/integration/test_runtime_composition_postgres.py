@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
@@ -455,6 +455,33 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert decision_replay.json()["data"]["id"] == str(decision_id)
             assert decision_replay.json()["data"]["status"] == "AWAITING_APPROVAL"
 
+        approver_actor_id = uuid4()
+        approver_principal = AuthenticatedPrincipal(actor_id=approver_actor_id, tenant_id=tenant_id)
+        def approver_provider(request: Request):
+            return approver_principal
+        approver_app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=approver_provider,
+            policy_evaluator=RequireApprovalPolicy(),
+        )
+        approval_key = f"runtime-approve-decision-{uuid4()}"
+        with TestClient(approver_app) as approver_client:
+            approval_response = approver_client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/{decision_id}/approve",
+                headers={"Idempotency-Key": approval_key},
+            )
+            assert approval_response.status_code == 200, approval_response.text
+            assert approval_response.json()["data"]["status"] == "APPROVED"
+            assert approval_response.json()["data"]["approved_by"] == str(approver_actor_id)
+            assert approval_response.headers["X-Correlation-ID"] == approval_response.json()["correlation_id"]
+            approval_replay = approver_client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/{decision_id}/approve",
+                headers={"Idempotency-Key": approval_key},
+            )
+            assert approval_replay.status_code == 200, approval_replay.text
+            assert approval_replay.json()["data"]["status"] == "APPROVED"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -463,14 +490,16 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
                 )
             )
             assert case_row is not None
-            assert case_row.status == "AWAITING_APPROVAL"
-            assert case_row.version == 6
+            assert case_row.status == "APPROVED"
+            assert case_row.version == 7
 
             from decision_os.infrastructure.persistence.models.decision import DecisionModel
             decision_row = session.scalar(select(DecisionModel).where(DecisionModel.id == decision_id))
             assert decision_row is not None
-            assert decision_row.status == "AWAITING_APPROVAL"
+            assert decision_row.status == "APPROVED"
             assert decision_row.approval_required is True
+            assert decision_row.approved_by == approver_actor_id
+            assert decision_row.approved_at is not None
 
             from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
             persisted_options = session.scalars(

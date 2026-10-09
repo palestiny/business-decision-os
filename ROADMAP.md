@@ -124,6 +124,7 @@
 - [x] Verify submit-options runtime composition and PostgreSQL option/state/idempotency path; CI #1051/#1052 passed on Python 3.12/3.13 with 208 tests per version and migration checks.
 - [x] Compose await-decision with request-scoped UoW, authorization, idempotency, audit/outbox, and PostgreSQL state/replay/correlation tests; CI #1055/#1056 passed on Python 3.12/3.13 (209 tests per version).
 - [x] Compose make-decision with request-scoped UoW, RBAC, explicit PolicyEvaluatorPort, idempotency, audit/outbox, and PostgreSQL persistence/replay/correlation checks; CI #1059/#1060 passed on Python 3.12/3.13.
+- [ ] Compose approve-decision and verify four-eyes enforcement plus approval attribution.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 
