@@ -23,7 +23,7 @@ pytestmark = pytest.mark.skipif(
 
 
 class AllowCreateCase:
-    def require(self, *, actor_id, tenant_id, permission, resource_id):
+    def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
         assert permission in {Permission.CREATE_CASE, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
