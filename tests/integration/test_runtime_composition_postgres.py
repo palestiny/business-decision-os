@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -272,5 +272,105 @@ def test_runtime_triage_route_persists_with_tenant_scope_and_idempotency():
             assert denied.status_code == 409, denied.text
             assert denied.json()["error"]["code"] == "DOMAIN_CONFLICT"
             assert case_id not in denied.text
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted():
+    tenant_id, actor_id = uuid4(), uuid4()
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    seed_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    title = f"Runtime analysis and evidence {uuid4()}"
+    try:
+        with seed_factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-analysis-evidence-{tenant_id}"))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+        evidence_id = uuid4()
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/v1/decision-cases",
+                headers={"Idempotency-Key": f"runtime-analysis-create-{uuid4()}"},
+                json={"case_type": "PROJECT_MARGIN_RISK", "title": title},
+            )
+            assert created.status_code == 201, created.text
+            case_id = created.json()["data"]["id"]
+
+            triaged = client.post(
+                f"/api/v1/decision-cases/{case_id}/triage",
+                headers={"Idempotency-Key": f"runtime-analysis-triage-{uuid4()}"},
+            )
+            assert triaged.status_code == 200, triaged.text
+            assert triaged.json()["data"]["status"] == "TRIAGED"
+
+            analysis_key = f"runtime-analysis-{uuid4()}"
+            first = client.post(
+                f"/api/v1/decision-cases/{case_id}/analysis/start",
+                headers={"Idempotency-Key": analysis_key},
+            )
+            assert first.status_code == 200, first.text
+            assert first.json()["data"]["status"] == "ANALYZING"
+            assert first.json()["data"]["version"] == 2
+            assert first.headers["X-Correlation-ID"] == first.json()["correlation_id"]
+
+            replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/analysis/start",
+                headers={"Idempotency-Key": analysis_key},
+            )
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["data"]["status"] == "ANALYZING"
+
+            evidence_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/evidence",
+                headers={"Idempotency-Key": f"runtime-evidence-{uuid4()}"},
+                json={
+                    "evidence_id": str(evidence_id),
+                    "source": "project-system",
+                    "metric": "forecast_margin",
+                    "value": "12.5",
+                    "unit": "percent",
+                    "period": "2026-10",
+                    "captured_at": "2026-10-09T08:00:00+00:00",
+                    "confidence": 0.95,
+                    "snapshot": "Approved monthly forecast snapshot",
+                },
+            )
+            assert evidence_response.status_code == 201, evidence_response.text
+            assert evidence_response.json()["data"]["id"] == str(evidence_id)
+            assert evidence_response.headers["X-Correlation-ID"] == evidence_response.json()["correlation_id"]
+
+        with seed_factory() as session:
+            case_row = session.scalar(
+                select(DecisionCaseModel).where(
+                    DecisionCaseModel.id == UUID(case_id),
+                    DecisionCaseModel.tenant_id == tenant_id,
+                )
+            )
+            assert case_row is not None
+            assert case_row.status == "ANALYZING"
+            assert case_row.version == 2
+
+            from decision_os.infrastructure.persistence.models.evidence import EvidenceModel
+            evidence_row = session.scalar(
+                select(EvidenceModel).where(
+                    EvidenceModel.id == evidence_id,
+                    EvidenceModel.tenant_id == tenant_id,
+                    EvidenceModel.case_id == UUID(case_id),
+                )
+            )
+            assert evidence_row is not None
+            assert evidence_row.metric == "forecast_margin"
+            assert evidence_row.value == "12.5"
     finally:
         engine.dispose()
