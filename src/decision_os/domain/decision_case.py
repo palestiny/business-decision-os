@@ -37,9 +37,9 @@ class DecisionCase:
     tenant_id: UUID
     case_type: str
     title: str
-    created_by: UUID | None = None
     status: CaseStatus = CaseStatus.DETECTED
     version: int = 0
+    created_by: UUID | None = None
 
     @classmethod
     def create(cls, *, id: UUID, tenant_id: UUID, case_type: str, title: str, created_by: UUID | None = None) -> "DecisionCase":

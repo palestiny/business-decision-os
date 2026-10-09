@@ -79,7 +79,7 @@ def test_resource_capacity_risk_full_closed_loop(session: Session):
 
     from decision_os.domain.decision_case import DecisionCase
     case = DecisionCase.create(
-        id=case_id, tenant_id=tenant_id, case_type="RESOURCE_CAPACITY_RISK", title="Capacity risk for October delivery"
+        id=case_id, tenant_id=tenant_id, case_type="RESOURCE_CAPACITY_RISK", title="Capacity risk for October delivery", created_by=actor_id
     )
     SQLAlchemyDecisionCaseRepository(session).add(case)
     session.commit()

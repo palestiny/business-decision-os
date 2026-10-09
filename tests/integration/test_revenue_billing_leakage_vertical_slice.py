@@ -79,7 +79,7 @@ def test_revenue_billing_leakage_full_closed_loop(session: Session):
 
     from decision_os.domain.decision_case import DecisionCase
     case = DecisionCase.create(
-        id=case_id, tenant_id=tenant_id, case_type="REVENUE_BILLING_LEAKAGE", title="October billing leakage"
+        id=case_id, tenant_id=tenant_id, case_type="REVENUE_BILLING_LEAKAGE", title="October billing leakage", created_by=actor_id
     )
     SQLAlchemyDecisionCaseRepository(session).add(case)
     session.commit()

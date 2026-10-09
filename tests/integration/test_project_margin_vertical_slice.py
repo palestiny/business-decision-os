@@ -79,7 +79,7 @@ def test_project_margin_risk_full_closed_loop(session: Session):
 
     from decision_os.domain.decision_case import DecisionCase
     case = DecisionCase.create(
-        id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK", title="Project Alpha margin risk"
+        id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK", title="Project Alpha margin risk", created_by=actor_id
     )
     SQLAlchemyDecisionCaseRepository(session).add(case)
     session.commit()

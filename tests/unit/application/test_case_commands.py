@@ -174,6 +174,7 @@ def test_make_decision_policy_can_allow_immediate_approval():
 
 def test_approve_decision_requires_authority_and_persists_by_tenant():
     case = make_case()
+    case.created_by = uuid4()
     move_to_awaiting_decision(case)
     option = DecisionOption(uuid4(), case.id, "Bill change request")
     decision = Decision.make(
