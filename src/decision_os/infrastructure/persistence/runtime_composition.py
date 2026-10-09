@@ -19,6 +19,12 @@ from decision_os.application.commands.start_action import StartActionCommand, St
 from decision_os.application.commands.complete_action_execution import CompleteActionExecutionCommand, CompleteActionExecutionHandler
 from decision_os.application.commands.mark_execution_unknown import MarkExecutionUnknownCommand, MarkExecutionUnknownHandler
 from decision_os.application.commands.reconcile_unknown_execution import ReconcileUnknownExecutionCommand, ReconcileUnknownExecutionHandler
+from decision_os.application.commands.create_expected_outcome import CreateExpectedOutcomeCommand, CreateExpectedOutcomeHandler
+from decision_os.application.commands.record_actual_outcome import RecordActualOutcomeCommand, RecordActualOutcomeHandler
+from decision_os.application.commands.verify_outcome import VerifyOutcomeCommand, VerifyOutcomeHandler
+from decision_os.application.create_expected_outcome_reliability import CreateExpectedOutcomeReliabilityBoundary
+from decision_os.application.record_actual_outcome_reliability import RecordActualOutcomeReliabilityBoundary
+from decision_os.application.verify_outcome_reliability import VerifyOutcomeReliabilityBoundary
 from decision_os.application.ports.authority import AuthorizationPort
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
@@ -439,6 +445,67 @@ class SessionScopedReconcileUnknownExecutionBoundary:
             boundary = ReconcileUnknownExecutionReliabilityBoundary(
                 uow=uow,
                 handler=ReconcileUnknownExecutionHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+
+class SessionScopedCreateExpectedOutcomeBoundary:
+    """Compose expected-outcome persistence and reliability adapters per command."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: CreateExpectedOutcomeCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = CreateExpectedOutcomeReliabilityBoundary(
+                uow=uow,
+                handler=CreateExpectedOutcomeHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+class SessionScopedRecordActualOutcomeBoundary:
+    """Compose actual-outcome persistence and reliability adapters per command."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: RecordActualOutcomeCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = RecordActualOutcomeReliabilityBoundary(
+                uow=uow,
+                handler=RecordActualOutcomeHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+class SessionScopedVerifyOutcomeBoundary:
+    """Compose outcome verification and case closure in one command transaction."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: VerifyOutcomeCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = VerifyOutcomeReliabilityBoundary(
+                uow=uow,
+                handler=VerifyOutcomeHandler(uow, self._authorization),
                 idempotency=SQLAlchemyIdempotencyRepository(session),
                 audit=SQLAlchemyAuditRepository(session),
                 outbox=SQLAlchemyOutboxRepository(session),

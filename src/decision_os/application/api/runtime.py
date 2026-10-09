@@ -26,6 +26,9 @@ from decision_os.infrastructure.persistence.runtime_composition import (
     SessionScopedCompleteActionExecutionBoundary,
     SessionScopedMarkExecutionUnknownBoundary,
     SessionScopedReconcileUnknownExecutionBoundary,
+    SessionScopedCreateExpectedOutcomeBoundary,
+    SessionScopedRecordActualOutcomeBoundary,
+    SessionScopedVerifyOutcomeBoundary,
 )
 
 
@@ -113,6 +116,15 @@ def build_runtime_app(
     reconcile_execution_boundary = SessionScopedReconcileUnknownExecutionBoundary(
         session_factory=session_factory, authorization=authorization,
     )
+    create_expected_outcome_boundary = SessionScopedCreateExpectedOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    record_actual_outcome_boundary = SessionScopedRecordActualOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    verify_outcome_boundary = SessionScopedVerifyOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
     queue_reader = SessionFactoryDecisionWorkQueueReader(session_factory)
     app = create_app(
         create_case_boundary=create_case_boundary,
@@ -130,6 +142,9 @@ def build_runtime_app(
         complete_execution_boundary=complete_execution_boundary,
         mark_unknown_execution_boundary=mark_unknown_execution_boundary,
         reconcile_execution_boundary=reconcile_execution_boundary,
+        create_expected_outcome_boundary=create_expected_outcome_boundary,
+        record_actual_outcome_boundary=record_actual_outcome_boundary,
+        verify_outcome_boundary=verify_outcome_boundary,
         decision_work_queue_reader=queue_reader,
         authorization=authorization,
         principal_provider=principal_provider,
