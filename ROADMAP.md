@@ -125,6 +125,7 @@
 - [x] Compose await-decision with request-scoped UoW, authorization, idempotency, audit/outbox, and PostgreSQL state/replay/correlation tests; CI #1055/#1056 passed on Python 3.12/3.13 (209 tests per version).
 - [x] Compose make-decision with request-scoped UoW, RBAC, explicit PolicyEvaluatorPort, idempotency, audit/outbox, and PostgreSQL persistence/replay/correlation checks; CI #1059/#1060 passed on Python 3.12/3.13.
 - [x] Compose approve-decision with request-scoped UoW, RBAC, four-eyes enforcement, idempotency, audit/outbox, and PostgreSQL approval attribution/replay; CI #1063/#1064 passed on Python 3.12/3.13.
+- [ ] Compose reject-decision and verify persisted rejection plus idempotent replay.
 - [ ] Compose additional command routes after lifecycle/authorization review
 - [ ] Product-facing queue usability and operator workflow
 

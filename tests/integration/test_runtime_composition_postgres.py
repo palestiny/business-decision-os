@@ -24,12 +24,73 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
     def evaluate(self, *, actor_id, tenant_id, case_id):
         return ApprovalDecision(required=True)
+
+
+
+def test_runtime_reject_decision_is_persisted_and_idempotent():
+    from datetime import datetime, timezone
+    from decision_os.infrastructure.persistence.models.decision import DecisionModel, DecisionOptionModel, DecisionSelectedOptionModel
+    from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
+
+    tenant_id, creator_id, decision_maker_id, rejector_id = uuid4(), uuid4(), uuid4(), uuid4()
+    case_id, decision_id, option_id = uuid4(), uuid4(), uuid4()
+    now = datetime.now(timezone.utc)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    try:
+        with factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-reject-{tenant_id}"))
+            session.flush()
+            session.add(DecisionCaseModel(
+                id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK",
+                title="Reject decision runtime test", created_by=creator_id,
+                status="AWAITING_APPROVAL", version=1, created_at=now, updated_at=now,
+            ))
+            session.flush()
+            session.add(DecisionOptionModel(id=option_id, case_id=case_id, title="Candidate option"))
+            session.add(DecisionModel(
+                id=decision_id, case_id=case_id, status="AWAITING_APPROVAL",
+                rationale="Candidate rationale", decided_by=decision_maker_id,
+                decided_at=now, created_at=now, approval_required=True,
+                authority_snapshot='{"approval_required": true, "policy_ids": []}',
+            ))
+            session.flush()
+            session.add(DecisionSelectedOptionModel(decision_id=decision_id, option_id=option_id))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=rejector_id, tenant_id=tenant_id)
+        def principal_provider(request: Request):
+            return principal
+        app = build_runtime_app(database_url=DATABASE_URL, authorization=AllowCreateCase(), principal_provider=principal_provider)
+        key = f"runtime-reject-decision-{uuid4()}"
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/{decision_id}/reject",
+                headers={"Idempotency-Key": key},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["status"] == "REJECTED"
+            assert response.headers["X-Correlation-ID"] == response.json()["correlation_id"]
+            replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision/{decision_id}/reject",
+                headers={"Idempotency-Key": key},
+            )
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["data"]["status"] == "REJECTED"
+
+        with factory() as session:
+            case = session.get(DecisionCaseModel, case_id)
+            decision = session.get(DecisionModel, decision_id)
+            assert case is not None and case.status == "REJECTED" and case.version == 2
+            assert decision is not None and decision.status == "REJECTED"
+    finally:
+        engine.dispose()
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():

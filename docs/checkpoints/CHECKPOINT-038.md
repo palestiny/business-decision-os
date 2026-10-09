@@ -70,7 +70,7 @@
 2. Command authorization correlation propagation is implemented and verified in CI #1023/#1024; no longer an open item.
 3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired. Make-decision uses an explicitly injected PolicyEvaluatorPort; no default approval policy is inferred from RBAC. Approve-decision is now composed and PostgreSQL verifies distinct-approver four-eyes enforcement, `approved_by`/`approved_at` persistence, and replay. CI #1063/#1064 passed on Python 3.12/3.13 with migration checks.
+4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired. Make-decision uses an explicitly injected PolicyEvaluatorPort; no default approval policy is inferred from RBAC. Approve-decision is now composed and PostgreSQL verifies distinct-approver four-eyes enforcement, `approved_by`/`approved_at` persistence, and replay. CI #1063/#1064 passed on Python 3.12/3.13 with migration checks. Reject-decision composition is added next; PostgreSQL persistence/replay verification is pending.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision
