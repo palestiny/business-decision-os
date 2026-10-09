@@ -43,7 +43,6 @@ Make it possible to reconstruct which actor was allowed or denied a protected op
 - [x] Migration lifecycle, `alembic current --check-heads`, `alembic check`, and CI verification on Python 3.12/3.13 — Runs #1011/#1012 passed for the durable audit slice; command-correlation propagation then passed Runs #1023/#1024 with 204 tests per run.
 - [x] Request correlation IDs propagate from protected API commands into authorization decision audit rows; unit/API contract tests verify the path.
 - [ ] Retention, backup/restore, and privileged-reader access remain deployment decisions before production rollout.
-- [ ] Retention, backup/restore, and privileged-reader access remain deployment decisions before production rollout.
 
 ## Dependencies
 
@@ -51,5 +50,6 @@ Make it possible to reconstruct which actor was allowed or denied a protected op
 - docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md
 - docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md
 - docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md
+- docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md
 
 Do not mark the overall authorization or runtime gate PASS merely because the decision-audit adapter exists. Production operations, retention, and privileged audit access remain separate deployment controls.

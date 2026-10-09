@@ -62,7 +62,7 @@
 - [x] Wire configured provider and resolver into runtime composition; tests verify HTTP 401 for invalid-signature and valid-but-unmapped bearer tokens.
 
 ## Authorization dependency
-Tenant-scoped RBAC is now the runtime default through `SQLAlchemyAuthorizationAdapter`, while the `AuthorizationPort` injection seam remains available for external policy adapters. Missing membership/role/permission denies by default. Four-eyes approval is independently enforced and CI-verified. Trusted-environment provisioning operations and deployment-specific OIDC configuration remain open; see `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`.
+Tenant-scoped RBAC is now the runtime default through `SQLAlchemyAuthorizationAdapter`, while the `AuthorizationPort` injection seam remains available for external policy adapters. Missing membership/role/permission denies by default. Four-eyes approval is independently enforced and CI-verified. Trusted-environment provisioning operations and deployment-specific OIDC configuration remain open; see `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md` and `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`.
 
 ## Gate closure
 Do not claim deployment authentication complete until deployment-specific configuration is selected, the trusted mapping provisioning workflow is established, and authorization/membership policy is proven. The adapter, resolver, migration, negative-token HTTP tests, and initial RBAC tests passed CI Runs #938/#939 and #959/#960 on Python 3.12/3.13. This does not establish production readiness while trusted provisioning and deployment-specific settings remain open.

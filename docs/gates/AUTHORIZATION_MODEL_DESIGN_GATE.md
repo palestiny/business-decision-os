@@ -68,4 +68,4 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 
 ## Dependencies
 
-See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, and `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`. Do not mark deployment authentication or runtime composition gates PASS merely because JWT validation succeeds.
+See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`, and `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`. Do not mark deployment authentication or runtime composition gates PASS merely because JWT validation succeeds.
