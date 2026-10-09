@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPTION B APPROVED — OFFLINE CLI AND ATOMIC AUDIT SLICE IMPLEMENTED; CI VERIFICATION PENDING.**
+**OPTION B IMPLEMENTED AND CI-VERIFIED — SEPARATION-OF-DUTIES AND DEPLOYMENT POLICY REMAIN OPEN.**
 
 Tenant-scoped RBAC is implemented and CI-verified. The runtime intentionally grants no access merely because an OIDC identity resolves: an active actor, active tenant membership, active role assignment, and explicit permission grant are all required. Migration 0011 seeds the role catalog but creates no memberships or role assignments.
 
@@ -32,7 +32,7 @@ This gate decides how an authorized operator creates and revokes identity mappin
 ## Recommended first implementation (Option B)
 
 1. Add a dedicated administrative command entry point, separate from the public FastAPI router.
-2. Support explicit operations to provision an external identity + membership + role assignment, list the effective grant for verification, and revoke a membership or role assignment. Do not implement arbitrary permission editing in the first slice.
+2. Support explicit operations to provision an external identity + membership + role assignment, inspect the effective grant, and revoke a membership or role assignment. Do not implement arbitrary permission editing in the first slice.
 3. Require the target tenant to exist and require explicit issuer, subject, tenant key, and role key. Accept an optional existing actor UUID only when linking an already-provisioned actor is an intentional operator action; otherwise create a new actor.
 4. Validate the role against the seeded active role catalog. Reject unknown/inactive roles and conflicting existing identity mappings. Do not infer or create tenants.
 5. Use one database transaction for all changes in a single provisioning operation.
@@ -51,11 +51,32 @@ This gate decides how an authorized operator creates and revokes identity mappin
 ## Initial implementation delivered
 
 - Added `decision-os-admin` offline entry point; it is not mounted on FastAPI.
-- Provision, membership revoke, and role-assignment revoke default to dry-run. Writes require `--confirm`.
+- Provision, membership revoke, and role-assignment revoke default to dry-run. Writes require `--confirm`; `show-identity` is read-only and reports effective roles/permissions.
 - Provisioning requires explicit issuer, subject, tenant key, tenant ID, role, and operator; tenant is not inferred or created.
 - Provisioning validates active role/actor/membership state, rejects conflicting identity mappings, and applies mapping + membership + role assignment + audit in one transaction.
 - Added `authorization_admin_audit` append-only-by-application table and migration 0012; no public endpoint or arbitrary permission-edit command is exposed.
 - Dry-run planning is read-only. Repeated matching grants are idempotent and recorded; revoked/inactive records require explicit recovery rather than being silently reactivated.
+- CI Run #983 passed on Python 3.12 and 3.13 at commit `7533424a1dcacf4921261f3a94c245dc5a62847d`: 193 tests passed per version; Alembic migration lifecycle and `alembic check` passed.
+
+### Operator examples (PowerShell)
+
+```powershell
+$env:SQLALCHEMY_DATABASE_URL = "postgresql+psycopg://..."
+
+# Plan only; does not write anything
+ decision-os-admin --database-url $env:SQLALCHEMY_DATABASE_URL provision --issuer "https://issuer.example" --subject "provider-subject" --tenant-key "tenant-key" --tenant-id "00000000-0000-0000-0000-000000000000" --role "read_only_reviewer" --operator "change-ticket:CHG-123"
+
+# Repeat the same command with --confirm only after reviewing the plan
+# Add --confirm before the operator argument to commit the grant.
+
+# Inspect the effective grant without mutating state
+decision-os-admin --database-url $env:SQLALCHEMY_DATABASE_URL show-identity --issuer "https://issuer.example" --subject "provider-subject" --tenant-key "tenant-key"
+
+# Revoke a role assignment; dry-run first, then add --confirm
+decision-os-admin --database-url $env:SQLALCHEMY_DATABASE_URL revoke-role --assignment-id "00000000-0000-0000-0000-000000000000" --operator "change-ticket:CHG-124"
+```
+
+Run the CLI only from a trusted administrative environment with tightly scoped database access. Apply migrations separately before provisioning. The examples use placeholders, not valid credentials or production identifiers.
 
 ## Acceptance criteria
 
@@ -65,9 +86,9 @@ This gate decides how an authorized operator creates and revokes identity mappin
 - Provisioning and its audit entry commit or roll back together.
 - Identical retry is safe; conflicting retry is rejected.
 - Revoked membership/assignment is denied by the next authorization check.
-- [ ] Unit and PostgreSQL integration tests pass; migrations pass upgrade/downgrade/upgrade and alembic check.
-- [ ] PostgreSQL verifies provision+audit atomicity, rollback on audit failure, conflict rejection, and revocation denial.
-- CI passes on Python 3.12 and 3.13.
+- [x] Unit and PostgreSQL integration tests pass; migrations pass upgrade/downgrade/upgrade and alembic check (CI #983, 193 tests per Python version).
+- [x] PostgreSQL verifies provision+audit atomicity, idempotent retry, conflict rejection, effective grant inspection, and revocation denial. Unit tests additionally verify rollback when audit insertion fails.
+- [x] CI passes on Python 3.12 and 3.13.
 - Documentation describes the operator trust boundary and recovery procedure.
 
 ## Dependencies

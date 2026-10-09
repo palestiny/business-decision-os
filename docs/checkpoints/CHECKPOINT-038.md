@@ -30,15 +30,16 @@
 - PostgreSQL integration verifies seeded roles, explicit grants, wrong-tenant denial, missing-permission denial, membership revocation, and read-only reviewer restrictions.
 - CI Runs #959/#960 passed for the initial RBAC slice; latest read-route enforcement passed CI #967/#968 on Python 3.12 and 3.13 at commit ca8e5272aaa8fa90d491e2b62677e109181f3bdc, with 184 tests per run and migration checks passing.
 
-## Trusted provisioning implementation (CI verification pending)
+## Trusted provisioning implementation (CI-verified)
 - Product owner approved the offline CLI/job approach; no public HTTP provisioning route is added.
-- Added `decision-os-admin` with provision, revoke-membership, and revoke-role operations; dry-run is default and writes require `--confirm`.
+- Added `decision-os-admin` with provision, show-identity, revoke-membership, and revoke-role operations; dry-run is default and writes require `--confirm`.
 - Added migration 0012 and `authorization_admin_audit`; provisioning/membership/assignment changes and audit records share one DB transaction.
 - The provisioner validates tenant, active role, actor references, mapping conflicts, and inactive membership/assignment states; no tenant or default admin is auto-created.
+- CI #983 passed on Python 3.12/3.13 at commit `7533424a1dcacf4921261f3a94c245dc5a62847d`, with 193 tests per version and migration lifecycle/Alembic checks passing.
 
 ## Remaining before runtime/security gate closure
-1. Establish trusted provisioning for identity mappings, memberships, and role assignments; see docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md.
-2. Add durable authorization-decision and role/membership-change audit.
+1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md.
+2. Extend durable audit coverage to every authorization decision and all role/membership changes outside this CLI; provisioning grants/revokes are audited transactionally.
 3. Decide separation-of-duties rules, including whether an author may approve their own case.
 4. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 5. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
