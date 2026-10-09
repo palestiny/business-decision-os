@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
@@ -543,6 +543,31 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert approval_replay.status_code == 200, approval_replay.text
             assert approval_replay.json()["data"]["status"] == "APPROVED"
 
+            action_id = uuid4()
+            action_key = f"runtime-create-action-{uuid4()}"
+            action_payload = {
+                "decision_id": str(decision_id),
+                "action_id": str(action_id),
+                "action_type": "COST_REDUCTION",
+                "parameters": "Reduce discretionary spend by 5 percent",
+            }
+            action_response = approver_client.post(
+                f"/api/v1/decision-cases/{case_id}/actions",
+                headers={"Idempotency-Key": action_key}, json=action_payload,
+            )
+            assert action_response.status_code == 201, action_response.text
+            assert action_response.json()["data"]["id"] == str(action_id)
+            assert action_response.json()["data"]["status"] == "READY"
+            assert action_response.json()["data"]["version"] == 1
+            assert action_response.headers["X-Correlation-ID"] == action_response.json()["correlation_id"]
+            action_replay = approver_client.post(
+                f"/api/v1/decision-cases/{case_id}/actions",
+                headers={"Idempotency-Key": action_key}, json=action_payload,
+            )
+            assert action_replay.status_code == 201, action_replay.text
+            assert action_replay.json()["data"]["id"] == str(action_id)
+            assert action_replay.json()["data"]["status"] == "READY"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -561,6 +586,14 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert decision_row.approval_required is True
             assert decision_row.approved_by == approver_actor_id
             assert decision_row.approved_at is not None
+
+            from decision_os.infrastructure.persistence.models.action import ActionModel
+            action_row = session.get(ActionModel, action_id)
+            assert action_row is not None
+            assert action_row.case_id == UUID(case_id)
+            assert action_row.decision_id == decision_id
+            assert action_row.status == "READY"
+            assert action_row.version == 1
 
             from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
             persisted_options = session.scalars(

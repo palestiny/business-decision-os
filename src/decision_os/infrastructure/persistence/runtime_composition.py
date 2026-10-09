@@ -14,6 +14,7 @@ from decision_os.application.commands.await_decision import AwaitDecisionCommand
 from decision_os.application.commands.make_decision import MakeDecisionCommand, MakeDecisionHandler
 from decision_os.application.commands.approve_decision import ApproveDecisionCommand, ApproveDecisionHandler
 from decision_os.application.commands.reject_decision import RejectDecisionCommand, RejectDecisionHandler
+from decision_os.application.commands.create_action import CreateActionCommand, CreateActionHandler
 from decision_os.application.ports.authority import AuthorizationPort
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
@@ -25,6 +26,7 @@ from decision_os.application.await_decision_reliability import AwaitDecisionReli
 from decision_os.application.make_decision_reliability import MakeDecisionReliabilityBoundary
 from decision_os.application.approve_decision_reliability import ApproveDecisionReliabilityBoundary
 from decision_os.application.reject_decision_reliability import RejectDecisionReliabilityBoundary
+from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.ports.authority import PolicyEvaluatorPort
 from decision_os.infrastructure.persistence.repositories.reliability import (
     SQLAlchemyAuditRepository,
@@ -328,6 +330,26 @@ class SessionScopedRejectDecisionBoundary:
             boundary = RejectDecisionReliabilityBoundary(
                 uow=uow,
                 handler=RejectDecisionHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+class SessionScopedCreateActionBoundary:
+    """Compose create-action adapters over one short-lived Session/transaction."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: CreateActionCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = CreateActionReliabilityBoundary(
+                uow=uow,
+                handler=CreateActionHandler(uow, self._authorization),
                 idempotency=SQLAlchemyIdempotencyRepository(session),
                 audit=SQLAlchemyAuditRepository(session),
                 outbox=SQLAlchemyOutboxRepository(session),

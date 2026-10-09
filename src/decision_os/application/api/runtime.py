@@ -21,6 +21,7 @@ from decision_os.infrastructure.persistence.runtime_composition import (
     SessionScopedMakeDecisionBoundary,
     SessionScopedApproveDecisionBoundary,
     SessionScopedRejectDecisionBoundary,
+    SessionScopedCreateActionBoundary,
 )
 
 
@@ -93,6 +94,9 @@ def build_runtime_app(
     reject_decision_boundary = SessionScopedRejectDecisionBoundary(
         session_factory=session_factory, authorization=authorization,
     )
+    create_action_boundary = SessionScopedCreateActionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
     queue_reader = SessionFactoryDecisionWorkQueueReader(session_factory)
     app = create_app(
         create_case_boundary=create_case_boundary,
@@ -105,6 +109,7 @@ def build_runtime_app(
         make_decision_boundary=make_decision_boundary,
         approve_decision_boundary=approve_decision_boundary,
         reject_decision_boundary=reject_decision_boundary,
+        create_action_boundary=create_action_boundary,
         decision_work_queue_reader=queue_reader,
         authorization=authorization,
         principal_provider=principal_provider,
