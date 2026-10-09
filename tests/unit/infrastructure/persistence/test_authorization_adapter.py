@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -13,6 +13,7 @@ from decision_os.infrastructure.persistence.models.authorization import (
     ActorModel, MembershipRoleAssignmentModel, RoleModel, RolePermissionModel, TenantMembershipModel,
 )
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
+from decision_os.infrastructure.persistence.models.authorization_decision_audit import AuthorizationDecisionAuditModel
 
 
 def test_rbac_grants_only_active_tenant_members_with_assigned_permission():
@@ -99,3 +100,87 @@ def test_rbac_fails_closed_when_policy_store_is_unavailable():
             actor_id=uuid4(), tenant_id=uuid4(),
             permission=Permission.CREATE_CASE, resource_id=uuid4(),
         )
+
+
+
+def _seed_authorization_for_audit(factory):
+    actor_id, tenant_id, membership_id, role_id = uuid4(), uuid4(), uuid4(), uuid4()
+    with factory() as session:
+        session.add_all([
+            TenantModel(id=tenant_id, name=f"audit-{tenant_id}"),
+            ActorModel(id=actor_id, is_active=True),
+            RoleModel(id=role_id, key=f"author-{role_id}", name="Decision Author", is_active=True),
+        ])
+        session.flush()
+        session.add_all([
+            TenantMembershipModel(
+                id=membership_id, actor_id=actor_id, tenant_id=tenant_id, is_active=True,
+            ),
+            RolePermissionModel(role_id=role_id, permission=Permission.CREATE_CASE.value),
+        ])
+        session.flush()
+        session.add(MembershipRoleAssignmentModel(
+            membership_id=membership_id, role_id=role_id, is_active=True,
+        ))
+        session.commit()
+    return actor_id, tenant_id
+
+
+def test_authorization_allow_and_deny_decisions_are_persisted_with_correlation():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    actor_id, tenant_id = _seed_authorization_for_audit(factory)
+    resource_id, correlation_id = uuid4(), uuid4()
+    try:
+        adapter = SQLAlchemyAuthorizationAdapter(factory)
+        adapter.require(
+            actor_id=actor_id, tenant_id=tenant_id,
+            permission=Permission.CREATE_CASE, resource_id=resource_id,
+            correlation_id=correlation_id,
+        )
+        with pytest.raises(AuthorizationDenied):
+            adapter.require(
+                actor_id=actor_id, tenant_id=tenant_id,
+                permission=Permission.APPROVE_DECISION, resource_id=resource_id,
+                correlation_id=correlation_id,
+            )
+
+        with factory() as session:
+            rows = session.scalars(
+                select(AuthorizationDecisionAuditModel).where(
+                    AuthorizationDecisionAuditModel.correlation_id == correlation_id,
+                ).order_by(AuthorizationDecisionAuditModel.outcome)
+            ).all()
+            assert [(row.outcome, row.reason_code) for row in rows] == [
+                ("ALLOW", "PERMISSION_GRANTED"),
+                ("DENY", "PERMISSION_NOT_GRANTED"),
+            ]
+            assert all(row.actor_id == actor_id and row.tenant_id == tenant_id for row in rows)
+            assert all(row.resource_id == resource_id for row in rows)
+    finally:
+        engine.dispose()
+
+
+def test_authorization_fails_closed_when_audit_write_fails():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    actor_id, tenant_id = _seed_authorization_for_audit(factory)
+
+    def fail_audit_insert(mapper, connection, target):
+        raise SQLAlchemyError("audit store unavailable")
+
+    event.listen(AuthorizationDecisionAuditModel, "before_insert", fail_audit_insert)
+    try:
+        with pytest.raises(PolicyEvaluationUnavailable):
+            SQLAlchemyAuthorizationAdapter(factory).require(
+                actor_id=actor_id, tenant_id=tenant_id,
+                permission=Permission.CREATE_CASE, resource_id=uuid4(),
+                correlation_id=uuid4(),
+            )
+        with factory() as session:
+            assert session.scalar(select(AuthorizationDecisionAuditModel.id)) is None
+    finally:
+        event.remove(AuthorizationDecisionAuditModel, "before_insert", fail_audit_insert)
+        engine.dispose()
