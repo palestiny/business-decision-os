@@ -15,6 +15,7 @@ from decision_os.infrastructure.persistence.models.authorization import (
     ActorModel,
     MembershipRoleAssignmentModel,
     RoleModel,
+    RolePermissionModel,
     TenantMembershipModel,
 )
 from decision_os.infrastructure.persistence.models.authorization_admin_audit import AuthorizationAdminAuditModel
