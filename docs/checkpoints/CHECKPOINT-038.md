@@ -5,12 +5,13 @@
 
 ## Delivered
 - Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
-- Engine and Session factory are process-scoped; each create-case, triage-case, start-analysis, create-evidence, and add-analysis-finding execution uses a short-lived Session.
-- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case, triage-case, start-analysis, create-evidence, and add-analysis-finding share one Session/transaction per command.
+- Engine and Session factory are process-scoped; each create-case, triage-case, start-analysis, create-evidence, add-analysis-finding, and submit-options execution uses a short-lived Session.
+- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case, triage-case, start-analysis, create-evidence, add-analysis-finding, and submit-options share one Session/transaction per command.
 - Runtime triage route persists status/version, preserves creator attribution on idempotent replay, propagates request correlation, and rejects cross-tenant case access. CI #1035 passed on Python 3.12/3.13 at commit `b65cfcb89dcd86cf510fe513a8880c2d933fa950`, with 206 tests per version and migration checks passing.
 - Start-analysis is composed in the runtime and tested for persistence, `TRIAGED → ANALYZING`, idempotent replay, creator-attribution serialization, and correlation propagation. CI #1039 passed on Python 3.12/3.13 at commit `0b65866ede42b6f34dec28b9308b47d1b89ce9a4`, with 207 tests per version and migration checks passing.
 - Create-evidence is composed in the runtime and verified along the create → triage → start-analysis → evidence path, including persistence and correlation propagation. CI Runs #1043/#1044 passed on Python 3.12/3.13 at commit `45ad57d8f5b598af32b49aa224cc70c51d0456f9`, with 208 tests per version and migration checks passing.
 - Add-analysis-finding is composed after evidence creation; PostgreSQL integration checks that only existing same-case evidence can be referenced, that the finding persists, and that identical idempotent replay returns the same finding. CI Runs #1047/#1048 passed on Python 3.12/3.13 at commit `b43943673671a8affcd360feeb4d2a58f9733c9e`, with 208 tests per version and migration checks passing.
+- Submit-options is composed after an evidence-backed finding. Its integration path verifies two options persist, the case transitions to `OPTIONS_READY` at version 3, and idempotent replay does not repeat the transition. CI verification pending.
 - The work-queue reader creates and closes a Session per query, including exceptional query exit.
 - PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue; a second tenant's queue cannot see it.
 - CI Runs #844/#845 passed on Python 3.12 and 3.13 for commit 3e8a1ced033c8f0e97f2a130bd4b6cce169b116f.
@@ -67,7 +68,7 @@
 2. Command authorization correlation propagation is implemented and verified in CI #1023/#1024; no longer an open item.
 3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is CI-verified in #1035, start-analysis in #1039, create-evidence in #1043/#1044, and add-analysis-finding is CI-verified in #1047/#1048.
+4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is CI-verified in #1035, start-analysis in #1039, create-evidence in #1043/#1044, add-analysis-finding in #1047/#1048, and submit-options awaits CI.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision

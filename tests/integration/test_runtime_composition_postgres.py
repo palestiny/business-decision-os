@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -382,6 +382,32 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert finding_replay.status_code == 201, finding_replay.text
             assert finding_replay.json()["data"]["id"] == str(finding_id)
 
+            option_ids = [uuid4(), uuid4()]
+            option_payload = [
+                {"id": str(option_ids[0]), "title": "Reduce discretionary spend"},
+                {"id": str(option_ids[1]), "title": "Renegotiate supplier terms"},
+            ]
+            options_key = f"runtime-submit-options-{uuid4()}"
+            options_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/options",
+                headers={"Idempotency-Key": options_key},
+                json=option_payload,
+            )
+            assert options_response.status_code == 200, options_response.text
+            assert options_response.json()["data"]["status"] == "OPTIONS_READY"
+            assert options_response.json()["data"]["version"] == 3
+            assert {item["id"] for item in options_response.json()["data"]["options"]} == {
+                str(value) for value in option_ids
+            }
+
+            options_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/options",
+                headers={"Idempotency-Key": options_key},
+                json=option_payload,
+            )
+            assert options_replay.status_code == 200, options_replay.text
+            assert options_replay.json()["data"]["status"] == "OPTIONS_READY"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -390,8 +416,14 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
                 )
             )
             assert case_row is not None
-            assert case_row.status == "ANALYZING"
-            assert case_row.version == 2
+            assert case_row.status == "OPTIONS_READY"
+            assert case_row.version == 3
+
+            from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
+            persisted_options = session.scalars(
+                select(DecisionOptionModel).where(DecisionOptionModel.case_id == UUID(case_id))
+            ).all()
+            assert {row.id for row in persisted_options} == set(option_ids)
 
             from decision_os.infrastructure.persistence.models.evidence import EvidenceModel
             evidence_row = session.scalar(
