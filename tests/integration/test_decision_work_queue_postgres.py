@@ -191,3 +191,25 @@ def test_cursor_reuse_never_changes_authenticated_tenant_scope(session: Session)
     assert page_b.status_code == 200
     returned_ids = {row["case_id"] for row in page_b.json()["data"]}
     assert returned_ids == {str(tenant_b_first), str(tenant_b_second)}
+
+
+def test_work_queue_cursor_is_bound_to_filter_set(session: Session):
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+    seed_case(session, tenant_id, UUID(int=100), "AWAITING_DECISION", "Decision one")
+    seed_case(session, tenant_id, UUID(int=200), "AWAITING_DECISION", "Decision two")
+    seed_case(session, tenant_id, UUID(int=300), "TRIAGED", "Review one")
+    seed_case(session, tenant_id, UUID(int=400), "TRIAGED", "Review two")
+    client = build_client(session, tenant_id)
+
+    first = client.get("/api/v1/decision-work-queue", params={
+        "limit": 1, "attention_state": "MAKE_DECISION",
+    })
+    assert first.status_code == 200
+    assert first.json()["next_cursor"]
+
+    changed_filter = client.get("/api/v1/decision-work-queue", params={
+        "limit": 1, "attention_state": "REVIEW_CASE", "cursor": first.json()["next_cursor"],
+    })
+    assert changed_filter.status_code == 400
+    assert changed_filter.json()["error"]["code"] == "INVALID_CURSOR"

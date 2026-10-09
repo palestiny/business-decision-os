@@ -36,24 +36,38 @@ _CASE_TYPES = frozenset({
 })
 
 
-def _encode_cursor(priority: int, case_id: UUID) -> str:
-    raw = json.dumps({"v": 1, "p": priority, "id": str(case_id)}, separators=(",", ":")).encode()
+def _encode_cursor(
+    priority: int, case_id: UUID, *, attention_state: str | None, case_type: str | None,
+) -> str:
+    raw = json.dumps({
+        "v": 1, "p": priority, "id": str(case_id),
+        "a": attention_state, "c": case_type,
+    }, separators=(",", ":")).encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
-def _decode_cursor(value: str | None) -> tuple[int, UUID] | None:
+def _decode_cursor(
+    value: str | None, *, attention_state: str | None, case_type: str | None,
+) -> tuple[int, UUID] | None:
     if value is None:
         return None
     try:
         padded = value + "=" * (-len(value) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
-        if not isinstance(payload, dict) or set(payload) != {"v", "p", "id"} or payload["v"] != 1:
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"v", "p", "id", "a", "c"}
+            or type(payload["v"]) is not int
+            or payload["v"] != 1
+        ):
             raise ValueError
         priority = payload["p"]
         if isinstance(priority, bool) or priority not in _PRIORITY.values():
             raise ValueError
         case_id = UUID(payload["id"])
         if str(case_id) != payload["id"]:
+            raise ValueError
+        if payload["a"] != attention_state or payload["c"] != case_type:
             raise ValueError
         return priority, case_id
     except (ValueError, TypeError, KeyError, UnicodeDecodeError, json.JSONDecodeError, binascii.Error) as exc:
@@ -92,7 +106,7 @@ class SQLAlchemyDecisionWorkQueueReader(DecisionWorkQueueReader):
             raise ValueError("unknown attention state")
         if case_type is not None and case_type not in _CASE_TYPES:
             raise ValueError("unknown case type")
-        decoded = _decode_cursor(cursor)
+        decoded = _decode_cursor(cursor, attention_state=attention_state, case_type=case_type)
 
         ready_action = exists(
             select(ActionModel.id).where(
@@ -156,7 +170,7 @@ class SQLAlchemyDecisionWorkQueueReader(DecisionWorkQueueReader):
         next_cursor = None
         if has_more and rows:
             _case, _decision, _attention, priority = rows[-1]
-            next_cursor = _encode_cursor(priority, _case.id)
+            next_cursor = _encode_cursor(priority, _case.id, attention_state=attention_state, case_type=case_type)
         return DecisionWorkQueuePage(items=items, next_cursor=next_cursor)
 
 

@@ -31,7 +31,7 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 
 1. Add optional filters for attention_state and case_type; reject unknown enum values instead of silently ignoring them.
 2. Default limit=50, maximum limit=100.
-3. Return data, next_cursor (nullable), and correlation_id. An opaque, versioned cursor represents the last ordering key; it must not carry tenant authority.
+3. Return data, next_cursor (nullable), and correlation_id. An opaque, versioned cursor represents the last ordering key and is bound to the active filter set; it must not carry tenant authority.
 4. Preserve priority ordering followed by case UUID as the stable tie-breaker. Validate cursor structure and reject malformed/unsupported versions with the standard client-error contract.
 5. Push filters, deterministic ordering, and the page bound into SQL. Avoid loading every tenant case and then slicing in Python.
 6. Use a bounded join/subquery strategy that prevents multiple actions from duplicating a case or corrupting page boundaries.
@@ -48,7 +48,7 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 
 - Reader now computes attention state and priority in SQL, applies tenant and optional filters in SQL, orders by priority then case UUID, and fetches only limit+1 rows.
 - READY-action detection uses a correlated EXISTS predicate rather than a one-to-many action join, avoiding duplicate cases and pagination boundary corruption.
-- Cursor v1 carries only the last priority and case UUID; tenant scope remains sourced exclusively from the authenticated principal and authorization is evaluated before each page query.
+- Cursor v1 carries the last priority and case UUID plus the filter values to reject accidental filter changes mid-pagination; it carries no tenant authority. Tenant scope remains sourced exclusively from the authenticated principal and authorization is evaluated before each page query.
 - API returns `data`, `next_cursor`, and `correlation_id`; unknown filter values use the existing validation error contract and malformed cursors use `INVALID_CURSOR`.
 - Pages are live, not snapshots; refresh after actions that change attention state.
 
