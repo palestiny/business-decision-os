@@ -1,13 +1,13 @@
 """add durable audit for authorization allow/deny decisions
 
-Revision ID: 0014_authorization_decision_audit
+Revision ID: 0014_auth_dec_audit
 Revises: 0013_separation_of_duties
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "0014_authorization_decision_audit"
+revision = "0014_auth_dec_audit"
 down_revision = "0013_separation_of_duties"
 branch_labels = None
 depends_on = None
