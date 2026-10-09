@@ -100,6 +100,7 @@ def make_case():
         tenant_id=uuid4(),
         case_type="PROJECT_MARGIN_RISK",
         title="Margin risk",
+        created_by=uuid4(),
     )
 
 
@@ -144,6 +145,7 @@ def test_triage_reliability_boundary_replays_completed_response():
 
     assert second.id == first.id
     assert second.status is CaseStatus.TRIAGED
+    assert second.created_by == case.created_by
     assert uow.commits == 1
     assert len(audit.items) == 1
 

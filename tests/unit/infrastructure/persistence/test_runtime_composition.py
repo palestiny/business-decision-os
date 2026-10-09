@@ -168,3 +168,70 @@ def test_concurrent_create_case_executions_use_distinct_sessions(monkeypatch):
     assert len(opened_sessions) == 2
     assert set(opened_sessions) == set(closed_sessions)
     assert not active_sessions
+
+
+
+def test_triage_case_boundary_uses_one_session_for_all_adapters(monkeypatch):
+    from decision_os.application.commands.triage_case import TriageCaseCommand
+    from decision_os.infrastructure.persistence import runtime_composition
+
+    session = object()
+    calls = []
+
+    class SessionContext:
+        def __enter__(self):
+            calls.append(("enter",))
+            return session
+
+        def __exit__(self, exc_type, exc, traceback):
+            calls.append(("exit", exc_type))
+            return False
+
+    class SessionFactory:
+        def __call__(self):
+            calls.append(("session",))
+            return SessionContext()
+
+    class Uow:
+        def __init__(self, supplied):
+            calls.append(("uow", supplied))
+
+    class Adapter:
+        def __init__(self, supplied):
+            calls.append((self.__class__.__name__, supplied))
+
+    class Handler:
+        def __init__(self, uow, authorization):
+            calls.append(("handler", uow, authorization))
+
+    class Boundary:
+        def __init__(self, **kwargs):
+            calls.append(("boundary", kwargs))
+
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            calls.append(("execute", command, idempotency_key, correlation_id))
+            return "triaged"
+
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyUnitOfWork", Uow)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyIdempotencyRepository", type("Idempotency", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyAuditRepository", type("Audit", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyOutboxRepository", type("Outbox", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "TriageCaseHandler", Handler)
+    monkeypatch.setattr(runtime_composition, "TriageCaseReliabilityBoundary", Boundary)
+
+    authorization = object()
+    provider = runtime_composition.SessionScopedTriageCaseBoundary(
+        session_factory=SessionFactory(),
+        authorization=authorization,
+    )
+    command = TriageCaseCommand(
+        tenant_id=uuid4(), case_id=uuid4(), actor_id=uuid4(), correlation_id=uuid4()
+    )
+    result = provider.execute(command, idempotency_key="triage-session-1", correlation_id=command.correlation_id)
+
+    assert result == "triaged"
+    assert [entry[0] for entry in calls] == [
+        "session", "enter", "uow", "handler", "Idempotency", "Audit", "Outbox", "boundary", "execute", "exit"
+    ]
+    assert all(entry[1] is session for entry in calls if entry[0] in {"uow", "Idempotency", "Audit", "Outbox"})
+    assert calls[-1] == ("exit", None)

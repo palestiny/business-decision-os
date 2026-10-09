@@ -5,8 +5,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from decision_os.application.commands.create_decision_case import CreateDecisionCaseCommand, CreateDecisionCaseHandler
+from decision_os.application.commands.triage_case import TriageCaseCommand, TriageCaseHandler
 from decision_os.application.ports.authority import AuthorizationPort
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
+from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
 from decision_os.infrastructure.persistence.repositories.reliability import (
     SQLAlchemyAuditRepository,
     SQLAlchemyIdempotencyRepository,
@@ -43,6 +45,42 @@ class SessionScopedCreateDecisionCaseBoundary:
             boundary = CreateDecisionCaseReliabilityBoundary(
                 uow=uow,
                 handler=CreateDecisionCaseHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(
+                command,
+                idempotency_key=idempotency_key,
+                correlation_id=correlation_id,
+            )
+
+
+
+class SessionScopedTriageCaseBoundary:
+    """Compose triage command adapters over one short-lived Session/transaction."""
+
+    def __init__(
+        self,
+        *,
+        session_factory: Callable[[], Session],
+        authorization: AuthorizationPort,
+    ) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(
+        self,
+        command: TriageCaseCommand,
+        *,
+        idempotency_key: str,
+        correlation_id: UUID | None = None,
+    ):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = TriageCaseReliabilityBoundary(
+                uow=uow,
+                handler=TriageCaseHandler(uow, self._authorization),
                 idempotency=SQLAlchemyIdempotencyRepository(session),
                 audit=SQLAlchemyAuditRepository(session),
                 outbox=SQLAlchemyOutboxRepository(session),

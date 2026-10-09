@@ -5,8 +5,9 @@
 
 ## Delivered
 - Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
-- Engine and Session factory are process-scoped; each create-case execution uses a short-lived Session.
-- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case share one Session/transaction.
+- Engine and Session factory are process-scoped; each create-case and triage-case execution uses a short-lived Session.
+- The UnitOfWork, handler, idempotency, audit, and outbox adapters for create-case and triage-case share one Session/transaction per command.
+- Runtime triage route persists status/version, preserves creator attribution on idempotent replay, propagates request correlation, and rejects cross-tenant case access; CI verification pending.
 - The work-queue reader creates and closes a Session per query, including exceptional query exit.
 - PostgreSQL HTTP integration creates a Decision Case and verifies it appears once in the same tenant's work queue; a second tenant's queue cannot see it.
 - CI Runs #844/#845 passed on Python 3.12 and 3.13 for commit 3e8a1ced033c8f0e97f2a130bd4b6cce169b116f.
@@ -63,7 +64,7 @@
 2. Propagate correlation IDs from API command requests through reliability boundaries into authorization audit rows; read API authorization is correlated, but command-handler authorization is not yet correlated.
 3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
+4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is now composed and awaiting CI evidence.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision

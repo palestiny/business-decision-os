@@ -1,7 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import Request
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -189,5 +189,86 @@ def test_runtime_handles_overlapping_http_commands_with_independent_transactions
                 )
             ).all()
             assert {case.title for case in persisted} == set(titles)
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_triage_route_persists_with_tenant_scope_and_idempotency():
+    tenant_id, actor_id, other_tenant_id = uuid4(), uuid4(), uuid4()
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    seed_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    title = f"Runtime triage {uuid4()}"
+    try:
+        with seed_factory() as session:
+            session.add_all([
+                TenantModel(id=tenant_id, name=f"runtime-triage-{tenant_id}"),
+                TenantModel(id=other_tenant_id, name=f"runtime-triage-other-{other_tenant_id}"),
+            ])
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/v1/decision-cases",
+                headers={"Idempotency-Key": f"runtime-triage-create-{uuid4()}"},
+                json={"case_type": "PROJECT_MARGIN_RISK", "title": title},
+            )
+            assert created.status_code == 201, created.text
+            case_id = created.json()["data"]["id"]
+
+            triage_key = f"runtime-triage-{uuid4()}"
+            first = client.post(
+                f"/api/v1/decision-cases/{case_id}/triage",
+                headers={"Idempotency-Key": triage_key},
+            )
+            assert first.status_code == 200, first.text
+            assert first.json()["data"]["status"] == "TRIAGED"
+            assert first.json()["data"]["version"] == 1
+            assert first.headers["X-Correlation-ID"] == first.json()["correlation_id"]
+
+            replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/triage",
+                headers={"Idempotency-Key": triage_key},
+            )
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["data"]["status"] == "TRIAGED"
+
+        with seed_factory() as session:
+            persisted = session.scalar(
+                select(DecisionCaseModel).where(
+                    DecisionCaseModel.id == UUID(case_id),
+                    DecisionCaseModel.tenant_id == tenant_id,
+                )
+            )
+            assert persisted is not None
+            assert persisted.status == "TRIAGED"
+            assert persisted.version == 1
+
+        other_principal = AuthenticatedPrincipal(actor_id=uuid4(), tenant_id=other_tenant_id)
+
+        def other_principal_provider(request: Request):
+            return other_principal
+
+        other_app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=other_principal_provider,
+        )
+        with TestClient(other_app) as other_client:
+            denied = other_client.post(
+                f"/api/v1/decision-cases/{case_id}/triage",
+                headers={"Idempotency-Key": f"runtime-cross-tenant-triage-{uuid4()}"},
+            )
+            assert denied.status_code == 404, denied.text
     finally:
         engine.dispose()

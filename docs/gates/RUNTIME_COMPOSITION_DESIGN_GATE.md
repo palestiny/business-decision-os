@@ -11,7 +11,7 @@ Define the production composition boundary for the existing Decision Core API be
 - A runtime composition root now builds an Engine and Session factory, composes the create-case command boundary, and provides a session-factory-backed work-queue reader.
 - The create-case UnitOfWork, idempotency, audit, and outbox adapters share one use-case-scoped Session.
 - The queue reader opens and closes a Session per query.
-- The runtime requires an explicit database URL and defaults to a database-backed, fail-closed RBAC AuthorizationPort; an explicit alternative adapter may be injected. If a PrincipalProvider is not injected, it builds the configured OIDC/JWT provider and database-backed identity resolver.
+- The runtime requires an explicit database URL and defaults to a database-backed, fail-closed RBAC AuthorizationPort; an explicit alternative adapter may be injected. If a PrincipalProvider is not injected, it builds the configured OIDC/JWT provider and database-backed identity resolver. The runtime now composes create-case and triage-case with request/use-case-scoped Sessions.
 - Authentication is delegated to an explicitly injected PrincipalProvider; the default provider rejects requests without an authenticated principal.
 
 An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastructure/authentication/oidc_jwt.py`. Runtime composition now uses it when no test/provider override is injected, with a database-backed resolver for server-provisioned external identity mappings. The mapping model and Alembic migration are implemented; CI verification for the current resolver/runtime-auth changes passed in Runs #938/#939 on Python 3.12 and 3.13; deployment-specific settings and further command composition remain open. See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`.
@@ -31,7 +31,8 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 
 - [x] Add an explicit runtime composition root for the create-case command and work queue.
 - [x] Require database URL; default to database-backed RBAC authorization and configured OIDC/JWT PrincipalProvider unless explicit replacements are injected.
-- [x] Scope command persistence adapters to one Session per execution.
+- [x] Scope create-case persistence adapters to one Session per execution.
+- [x] Compose triage-case with the same UnitOfWork + idempotency/audit/outbox Session boundary; PostgreSQL HTTP tests verify persisted state, idempotent replay, request correlation, and cross-tenant denial..
 - [x] Scope the work-queue reader to one Session per query and verify cleanup on query failure.
 - [x] PostgreSQL HTTP integration: create a case, then query it in the same tenant's work queue.
 - [x] PostgreSQL HTTP integration: verify a second tenant cannot see the first tenant's case.
@@ -50,7 +51,8 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 - [x] Propagate request correlation IDs through command dataclasses into authorization decision audit; CI Runs #1023/#1024 passed on Python 3.12/3.13 with 204 tests each.
 - [x] Approve audit retention/access policy defaults (365-day searchable window, security/operations-only access, no public query API, cleanup disabled pending legal-hold/archive design); deployment controls and restore evidence remain open in `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`.
 - [ ] Cover any role/membership change path outside the trusted provisioning CLI.
-- [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
+- [x] Compose and test the triage-case route with explicit authorization, idempotency, outbox, tenant-scoped lookup, and Session lifecycle (CI evidence pending).
+- [ ] Compose further command routes only after their dependencies and lifecycles are explicit.
 
 ## Acceptance criteria
 
@@ -64,4 +66,4 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 
 ## Status
 
-**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production identity-provider configuration, trusted-environment provisioning operations, implementation/evidence for audit retention, backup/restore, privileged access review (see `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`), and composition of additional command routes remain open. Product-level retention/access defaults are approved, but this is not operational verification. Durable allow/deny authorization audit and fail-closed audit-write behavior passed CI Runs #1011/#1012. Command-path correlation propagation passed CI Runs #1023/#1024 with 204 tests per supported Python version. Four-eyes approval is implemented and verified by CI Runs #995/#996. Initial RBAC and permission-gated read APIs passed CI Runs #959/#960 and #967/#968 on Python 3.12/3.13. Resolver/runtime-auth tests and migration checks passed CI Runs #938/#939 on Python 3.12/3.13. This is not a deployment-readiness claim.
+**CREATE-CASE + TRIAGE-CASE RUNTIME SLICES IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production identity-provider configuration, trusted-environment provisioning operations, implementation/evidence for audit retention, backup/restore, privileged access review (see `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`), and composition of additional command routes remain open. Product-level retention/access defaults are approved, but this is not operational verification. Durable allow/deny authorization audit and fail-closed audit-write behavior passed CI Runs #1011/#1012. Command-path correlation propagation passed CI Runs #1023/#1024 with 204 tests per supported Python version. Four-eyes approval is implemented and verified by CI Runs #995/#996. Initial RBAC and permission-gated read APIs passed CI Runs #959/#960 and #967/#968 on Python 3.12/3.13. Resolver/runtime-auth tests and migration checks passed CI Runs #938/#939 on Python 3.12/3.13. This is not a deployment-readiness claim.
