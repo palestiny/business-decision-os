@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPEN — CHOOSE A TRUSTED PROVISIONING PATH BEFORE IMPLEMENTATION.**
+**OPTION B APPROVED — OFFLINE CLI AND ATOMIC AUDIT SLICE IMPLEMENTED; CI VERIFICATION PENDING.**
 
 Tenant-scoped RBAC is implemented and CI-verified. The runtime intentionally grants no access merely because an OIDC identity resolves: an active actor, active tenant membership, active role assignment, and explicit permission grant are all required. Migration 0011 seeds the role catalog but creates no memberships or role assignments.
 
@@ -43,10 +43,19 @@ This gate decides how an authorized operator creates and revokes identity mappin
 
 ## Decisions still required
 
-- Approve the offline CLI/job approach, or select A/C.
+- [x] Product owner approved Option B: offline administrative CLI/job.
 - Decide whether one external subject may be linked to the same internal actor across multiple tenants; initial safe default is no automatic linking, with explicit operator-supplied actor ID for intentional linking.
 - Confirm whether initial Tenant Admin assignment requires a second-person review. Recommended: not in the first CLI, but all grants are explicitly audited and access to the command is tightly controlled.
 - Decide whether an author may approve their own case. RBAC role separation alone does not prevent one actor holding both roles; approval separation-of-duties must be enforced in the application policy before this is treated as complete.
+
+## Initial implementation delivered
+
+- Added `decision-os-admin` offline entry point; it is not mounted on FastAPI.
+- Provision, membership revoke, and role-assignment revoke default to dry-run. Writes require `--confirm`.
+- Provisioning requires explicit issuer, subject, tenant key, tenant ID, role, and operator; tenant is not inferred or created.
+- Provisioning validates active role/actor/membership state, rejects conflicting identity mappings, and applies mapping + membership + role assignment + audit in one transaction.
+- Added `authorization_admin_audit` append-only-by-application table and migration 0012; no public endpoint or arbitrary permission-edit command is exposed.
+- Dry-run planning is read-only. Repeated matching grants are idempotent and recorded; revoked/inactive records require explicit recovery rather than being silently reactivated.
 
 ## Acceptance criteria
 
@@ -56,7 +65,8 @@ This gate decides how an authorized operator creates and revokes identity mappin
 - Provisioning and its audit entry commit or roll back together.
 - Identical retry is safe; conflicting retry is rejected.
 - Revoked membership/assignment is denied by the next authorization check.
-- Unit and PostgreSQL integration tests pass; migrations pass upgrade/downgrade/upgrade and alembic check.
+- [ ] Unit and PostgreSQL integration tests pass; migrations pass upgrade/downgrade/upgrade and alembic check.
+- [ ] PostgreSQL verifies provision+audit atomicity, rollback on audit failure, conflict rejection, and revocation denial.
 - CI passes on Python 3.12 and 3.13.
 - Documentation describes the operator trust boundary and recovery procedure.
 
