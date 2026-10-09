@@ -60,6 +60,7 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 
 - Trusted provisioning for identity mappings, memberships, and role assignments.
 - Review retention, access, and operational recovery for durable authorization-decision and administrative audit records.
+- Propagate request correlation IDs into command-handler authorization checks; read API checks already include correlation IDs, but current command handlers do not yet pass them.
 - [x] Four-eyes separation-of-duties is implemented and verified in CI #995/#996 (200 tests per Python version); see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 - Decide whether permissions need to vary by case type.
 - Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.

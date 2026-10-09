@@ -53,10 +53,11 @@
 
 ## Remaining before runtime/security gate closure
 1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`.
-2. Review any remaining direct/alternate authorization paths; audit implementation is CI-verified, while retention/access policy remains open.
+2. Propagate correlation IDs from API command requests through reliability boundaries into authorization audit rows; read API authorization is correlated, but command-handler authorization is not yet correlated.
+3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 4. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision
-Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, protected read routes, trusted provisioning implementation, and four-eyes approval are CI-verified. Trusted-environment operations, audit retention/access policy, and deployment configuration remain open.
+Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, protected read routes, trusted provisioning implementation, and four-eyes approval are CI-verified. Trusted-environment operations, audit retention/access policy, command-authorization correlation propagation, and deployment configuration remain open.
