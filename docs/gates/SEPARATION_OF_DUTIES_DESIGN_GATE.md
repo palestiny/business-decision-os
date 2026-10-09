@@ -2,9 +2,9 @@
 
 ## Status
 
-**OPEN — RECOMMENDED POLICY: THE APPROVER MUST DIFFER FROM BOTH THE CASE CREATOR AND DECISION MAKER.**
+**PASS — OPTION B IMPLEMENTED AND VERIFIED IN CI.**
 
-The current RBAC adapter can grant both author and approver roles to one actor. Decision records decided_by, but DecisionCase does not persist its creator and approval does not persist approved_by. Therefore role names alone do not establish a four-eyes control.
+The product owner approved Option B. New cases persist `created_by`; approved decisions persist `approved_by` and `approved_at`. The approval handler checks `APPROVE_DECISION` authorization first, then independently rejects the case creator, decision maker, and legacy cases with missing creator attribution. A tenant-admin role does not bypass these checks.
 
 ## Security objective
 
@@ -32,14 +32,22 @@ Choose Option B as the safe default for the initial Decision OS product:
 
 ## Acceptance criteria
 
-- [ ] Product owner approves Option B or chooses A/C.
-- [ ] New case creator and decision maker are persisted.
-- [ ] Successful approval records actor and timestamp durably.
-- [ ] Same-creator and same-decision-maker approvals are denied, including for Tenant Admin.
-- [ ] Missing creator attribution fails closed for approval-required cases.
-- [ ] Tests verify authorization and separation-of-duties are independent controls.
-- [ ] PostgreSQL migration lifecycle and Alembic check pass.
-- [ ] CI passes on Python 3.12 and 3.13.
+- [x] Product owner approved Option B.
+- [x] New case creator and decision maker are persisted.
+- [x] Successful approval records actor and timestamp durably.
+- [x] Same-creator and same-decision-maker approvals are denied independently of RBAC role grants.
+- [x] Missing creator attribution fails closed for approval-required cases.
+- [x] Unit and PostgreSQL tests verify authorization and separation-of-duties are independent controls.
+- [x] PostgreSQL migration upgrade/downgrade/upgrade and Alembic check pass.
+- [x] CI Runs #995/#996 passed on Python 3.12 and 3.13; 200 tests passed per run.
+
+## Implementation and verification evidence
+
+- Added Alembic migration `0013_separation_of_duties` for nullable legacy-compatible `decision_cases.created_by`, `decisions.approved_by`, and `decisions.approved_at`.
+- Create-case command persists authenticated actor attribution; approval writes approver ID and UTC timestamp in the same decision transaction.
+- Same creator, same decision maker, missing legacy attribution, and distinct approver are covered by unit and PostgreSQL integration tests. The existing HTTP approval replay test verifies the approver and timestamp survive persistence and idempotent replay.
+- CI Runs #995/#996 passed at commit `d293535e0fc0ac9bbe71a738867a03906a05195c`; each Python version reports 200 passed tests, and migration lifecycle plus `alembic check` passed.
+- Legacy cases without creator attribution intentionally remain unapprovable. No inferred creator, generic override, or unaudited backfill was added.
 
 ## Dependencies
 

@@ -1,7 +1,7 @@
 # CHECKPOINT-038 — Runtime Composition First Slice
 
 ## Status
-**Runtime composition, OIDC wiring, tenant-scoped RBAC, and permission-gated read APIs are CI-verified. Runtime gate remains open for operational security controls.**
+**Runtime composition, OIDC wiring, tenant-scoped RBAC, permission-gated reads, trusted provisioning, and four-eyes approval are CI-verified. Runtime gate remains open for deployment and operational security controls.**
 
 ## Delivered
 - Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
@@ -37,14 +37,18 @@
 - The provisioner validates tenant, active role, actor references, mapping conflicts, and inactive membership/assignment states; no tenant or default admin is auto-created.
 - CI #983 passed on Python 3.12/3.13 at commit `7533424a1dcacf4921261f3a94c245dc5a62847d`, with 193 tests per version and migration lifecycle/Alembic checks passing.
 
+## Four-eyes approval implementation (CI-verified)
+- Migration `0013_separation_of_duties` adds case creator and approval actor/time attribution while retaining nullable creator attribution for legacy rows.
+- Approval checks the `APPROVE_DECISION` permission independently, then denies approval by the case creator, decision maker, or any actor when a legacy case has no creator attribution. Tenant Admin cannot bypass the rule.
+- Unit and PostgreSQL integration tests cover same-creator, same-decision-maker, missing legacy attribution, and distinct-approver persistence/replay.
+- CI Runs #995/#996 passed on Python 3.12/3.13 at commit `d293535e0fc0ac9bbe71a738867a03906a05195c`, with 200 tests per run and migration lifecycle/Alembic checks passing.
+
 ## Remaining before runtime/security gate closure
-1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md.
+1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`.
 2. Extend durable audit coverage to every authorization decision and all role/membership changes outside this CLI; provisioning grants/revokes are audited transactionally.
-3. Resolve the proposed four-eyes approval rule in docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md before implementing the approval persistence changes.
-3. Decide separation-of-duties rules, including whether an author may approve their own case.
-4. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-5. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
-6. Validate product-facing queue usability and operator workflow.
+3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
+4. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
+5. Validate product-facing queue usability and operator workflow.
 
 ## Decision
-Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, and protected read routes are CI-verified. Trusted provisioning, durable authorization audit, separation-of-duties rules, and deployment configuration remain open.
+Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, protected read routes, trusted provisioning implementation, and four-eyes approval are CI-verified. Trusted-environment operations, broader authorization-decision auditing, and deployment configuration remain open.

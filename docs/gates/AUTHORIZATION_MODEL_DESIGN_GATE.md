@@ -2,7 +2,7 @@
 
 ## Status
 
-**INITIAL TENANT-SCOPED RBAC SLICE VERIFIED IN CI — OPERATIONAL-POLICY CLOSURE REMAINS OPEN.**
+**TENANT-SCOPED RBAC AND FOUR-EYES APPROVAL VERIFIED IN CI — OPERATIONAL-POLICY CLOSURE REMAINS OPEN.**
 
 The product owner approved Option B. The implementation now includes actor lifecycle, tenant memberships, role/permission grants, membership-scoped role assignments, and a fail-closed SQLAlchemy adapter. Runtime composition uses this adapter by default while allowing an explicit replacement. Migration 0011 backfills actor rows but deliberately creates no memberships or role assignments.
 
@@ -45,7 +45,7 @@ The product owner approved Option B. The implementation now includes actor lifec
 - `operator`: create/start actions, update/reconcile execution, create/verify outcomes.
 - `read_only_reviewer`: no command permissions; granted only `VIEW_DECISION_HISTORY`, `VIEW_DECISION_MEMORY`, and `VIEW_DECISION_WORK_QUEUE`.
 
-The initial permissions are tenant-wide. History, memory, and work-queue read routes require their corresponding permission, and app composition rejects enabling these readers without an AuthorizationPort. Role separation does not yet prevent the same actor from holding author and approver roles or approving their own case.
+The initial permissions are tenant-wide. History, memory, and work-queue read routes require their corresponding permission. Approval now applies a separate four-eyes rule: the approver must differ from the case creator and decision maker, regardless of RBAC role. Legacy cases without creator attribution fail closed.
 
 ## Verification evidence
 
@@ -59,7 +59,7 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 
 - Trusted provisioning for identity mappings, memberships, and role assignments.
 - Durable audit of authorization decisions and role/membership changes.
-- Decide and verify separation-of-duties rules in `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
+- [x] Four-eyes separation-of-duties is implemented and verified in CI #995/#996 (200 tests per Python version); see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 - Decide whether permissions need to vary by case type.
 - Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 

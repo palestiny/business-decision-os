@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPTION B IMPLEMENTED AND CI-VERIFIED — SEPARATION-OF-DUTIES AND DEPLOYMENT POLICY REMAIN OPEN.**
+**OFFLINE PROVISIONING IMPLEMENTED AND CI-VERIFIED — DEPLOYMENT POLICY REMAINS OPEN.**
 
 Tenant-scoped RBAC is implemented and CI-verified. The runtime intentionally grants no access merely because an OIDC identity resolves: an active actor, active tenant membership, active role assignment, and explicit permission grant are all required. Migration 0011 seeds the role catalog but creates no memberships or role assignments.
 
@@ -46,7 +46,7 @@ This gate decides how an authorized operator creates and revokes identity mappin
 - [x] Product owner approved Option B: offline administrative CLI/job.
 - Decide whether one external subject may be linked to the same internal actor across multiple tenants; initial safe default is no automatic linking, with explicit operator-supplied actor ID for intentional linking.
 - Confirm whether initial Tenant Admin assignment requires a second-person review. Recommended: not in the first CLI, but all grants are explicitly audited and access to the command is tightly controlled.
-- Decide and enforce case-creator/decision-maker separation from the approver; see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`. RBAC role separation alone does not prevent one actor holding both roles.
+- [x] Enforce case-creator/decision-maker separation from the approver, independent of RBAC roles; verified by CI #995/#996 (200 tests per Python version). See `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 
 ## Initial implementation delivered
 
@@ -98,4 +98,4 @@ Run the CLI only from a trusted administrative environment with tightly scoped d
 - docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md
 - docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md
 
-Do not claim deployment readiness until provisioning, durable authorization administration audit, separation-of-duties policy, and deployment-specific OIDC configuration are verified.
+Do not claim deployment readiness until trusted-environment operations and retention/recovery, broader authorization-decision auditing, and deployment-specific OIDC configuration are verified.

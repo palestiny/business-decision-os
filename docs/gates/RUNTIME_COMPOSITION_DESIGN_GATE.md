@@ -45,7 +45,8 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 - [ ] Configure deployment-specific issuer/audience/JWKS/tenant claim and establish trusted identity/membership/role provisioning.
 - [x] Verify RBAC migration and PostgreSQL authorization integration tests in CI on Python 3.12/3.13 — Runs #959/#960 passed at commit `2ff6fc635ba6779e4d097fc49e82e3ab3ff7958e` (182 tests each; Alembic check passed).
 - [x] Require AuthorizationPort for read API composition and check per-route history/memory/work-queue permissions; CI Runs #967/#968 passed on Python 3.12/3.13 (184 tests each).
-- [ ] Establish durable authorization-decision and role-change auditing and separation-of-duties rules.
+- [x] Implement and verify four-eyes approval attribution and enforcement; CI Runs #995/#996 passed on Python 3.12/3.13 (200 tests each).
+- [ ] Establish durable audit of allow/deny authorization decisions and all role/membership changes outside the provisioning CLI.
 - [ ] Compose and test additional command routes only when their dependencies and lifecycles are explicit.
 
 ## Acceptance criteria
@@ -60,4 +61,4 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 
 ## Status
 
-**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production identity-provider configuration, trusted membership/role provisioning, durable authorization audit, separation-of-duties rules (see `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`), and composition of additional command routes remain open. Initial RBAC and permission-gated read APIs passed CI Runs #959/#960 and #967/#968 on Python 3.12/3.13. Resolver/runtime-auth tests and migration checks passed CI Runs #938/#939 on Python 3.12/3.13. This is not a deployment-readiness claim.
+**FIRST RUNTIME SLICE IMPLEMENTED; GATE STILL OPEN.** The create-case + work-queue composition, same-tenant/cross-tenant HTTP checks, overlapping PostgreSQL-backed HTTP create requests (both return 201 and persist), and rollback after an injected Outbox failure are verified in CI on Python 3.12 and 3.13. Concurrent command Session isolation is also unit-tested. Production identity-provider configuration, trusted-environment provisioning operations, durable authorization-decision audit, and composition of additional command routes remain open. Four-eyes approval is implemented and verified by CI Runs #995/#996. Initial RBAC and permission-gated read APIs passed CI Runs #959/#960 and #967/#968 on Python 3.12/3.13. Resolver/runtime-auth tests and migration checks passed CI Runs #938/#939 on Python 3.12/3.13. This is not a deployment-readiness claim.
