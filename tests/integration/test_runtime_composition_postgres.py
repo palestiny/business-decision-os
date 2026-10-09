@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from decision_os.application.api.runtime import build_runtime_app
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
-from decision_os.application.ports.authority import Permission
+from decision_os.application.ports.authority import ApprovalDecision, Permission
 from decision_os.infrastructure.persistence.models.decision_case import DecisionCaseModel
 from decision_os.infrastructure.persistence.models.tenant import TenantModel
 
@@ -24,7 +24,12 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.VIEW_DECISION_WORK_QUEUE}
+
+
+class RequireApprovalPolicy:
+    def evaluate(self, *, actor_id, tenant_id, case_id):
+        return ApprovalDecision(required=True)
 
 
 def test_runtime_create_case_is_visible_in_tenant_work_queue():
@@ -296,6 +301,7 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             database_url=DATABASE_URL,
             authorization=AllowCreateCase(),
             principal_provider=principal_provider,
+            policy_evaluator=RequireApprovalPolicy(),
         )
         evidence_id = uuid4()
         with TestClient(app) as client:
@@ -425,6 +431,30 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert await_replay.status_code == 200, await_replay.text
             assert await_replay.json()["data"]["status"] == "AWAITING_DECISION"
 
+            decision_id = uuid4()
+            decision_key = f"runtime-make-decision-{uuid4()}"
+            decision_payload = {
+                "decision_id": str(decision_id),
+                "option_ids": [str(option_ids[0])],
+                "rationale": "Protect the forecast margin with the selected option.",
+            }
+            decision_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision",
+                headers={"Idempotency-Key": decision_key}, json=decision_payload,
+            )
+            assert decision_response.status_code == 200, decision_response.text
+            assert decision_response.json()["data"]["id"] == str(decision_id)
+            assert decision_response.json()["data"]["status"] == "AWAITING_APPROVAL"
+            assert decision_response.json()["data"]["approval_required"] is True
+            assert decision_response.headers["X-Correlation-ID"] == decision_response.json()["correlation_id"]
+            decision_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/decision",
+                headers={"Idempotency-Key": decision_key}, json=decision_payload,
+            )
+            assert decision_replay.status_code == 200, decision_replay.text
+            assert decision_replay.json()["data"]["id"] == str(decision_id)
+            assert decision_replay.json()["data"]["status"] == "AWAITING_APPROVAL"
+
         with seed_factory() as session:
             case_row = session.scalar(
                 select(DecisionCaseModel).where(
@@ -433,8 +463,14 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
                 )
             )
             assert case_row is not None
-            assert case_row.status == "AWAITING_DECISION"
-            assert case_row.version == 4
+            assert case_row.status == "AWAITING_APPROVAL"
+            assert case_row.version == 6
+
+            from decision_os.infrastructure.persistence.models.decision import DecisionModel
+            decision_row = session.scalar(select(DecisionModel).where(DecisionModel.id == decision_id))
+            assert decision_row is not None
+            assert decision_row.status == "AWAITING_APPROVAL"
+            assert decision_row.approval_required is True
 
             from decision_os.infrastructure.persistence.models.decision import DecisionOptionModel
             persisted_options = session.scalars(

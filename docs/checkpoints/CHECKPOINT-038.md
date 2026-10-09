@@ -70,7 +70,7 @@
 2. Command authorization correlation propagation is implemented and verified in CI #1023/#1024; no longer an open item.
 3. Review any remaining direct/alternate authorization paths and define audit retention/access policy.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
-4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired; triage-case is CI-verified in #1035, start-analysis in #1039, create-evidence in #1043/#1044, add-analysis-finding in #1047/#1048, and submit-options is CI-verified in #1051/#1052.
+4. Compose further command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired. Make-decision must receive an explicit PolicyEvaluatorPort; do not invent approval rules or provide an implicit default evaluator.
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision

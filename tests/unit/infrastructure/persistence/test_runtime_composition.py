@@ -289,3 +289,52 @@ def test_await_decision_boundary_uses_one_session_for_all_adapters(monkeypatch):
     ]
     assert all(entry[1] is session for entry in calls if entry[0] in {"uow", "Idempotency", "Audit", "Outbox"})
     assert calls[-1] == ("exit", None)
+
+
+def test_make_decision_boundary_uses_one_session_and_injected_policy(monkeypatch):
+    from decision_os.application.commands.make_decision import MakeDecisionCommand
+    from decision_os.infrastructure.persistence import runtime_composition
+
+    session, calls = object(), []
+
+    class Uow:
+        def __init__(self, supplied):
+            self.decision_options = object()
+            calls.append(("uow", supplied))
+    class Adapter:
+        def __init__(self, supplied):
+            calls.append((self.__class__.__name__, supplied))
+    class Handler:
+        def __init__(self, uow, authorization, policy_evaluator):
+            calls.append(("handler", uow, authorization, policy_evaluator))
+    class Boundary:
+        def __init__(self, **kwargs):
+            calls.append(("boundary", kwargs))
+        def execute(self, command, *, idempotency_key, correlation_id=None):
+            calls.append(("execute", command, idempotency_key, correlation_id))
+            return "decision"
+    class SessionContext:
+        def __enter__(self): return session
+        def __exit__(self, exc_type, exc, traceback): calls.append(("exit", exc_type)); return False
+    class SessionFactory:
+        def __call__(self): return SessionContext()
+
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyUnitOfWork", Uow)
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyIdempotencyRepository", type("Idempotency", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyAuditRepository", type("Audit", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "SQLAlchemyOutboxRepository", type("Outbox", (Adapter,), {}))
+    monkeypatch.setattr(runtime_composition, "MakeDecisionHandler", Handler)
+    monkeypatch.setattr(runtime_composition, "MakeDecisionReliabilityBoundary", Boundary)
+
+    authorization, policy = object(), object()
+    provider = runtime_composition.SessionScopedMakeDecisionBoundary(
+        session_factory=SessionFactory(), authorization=authorization, policy_evaluator=policy
+    )
+    command = MakeDecisionCommand(tenant_id=uuid4(), case_id=uuid4(), decision_id=uuid4(),
+                                  option_ids=(uuid4(),), rationale="Protect margin", actor_id=uuid4())
+    assert provider.execute(command, idempotency_key="make-decision-1") == "decision"
+    handler_call = next(call for call in calls if call[0] == "handler")
+    assert handler_call[2] is authorization and handler_call[3] is policy
+    boundary_kwargs = next(call[1] for call in calls if call[0] == "boundary")
+    assert boundary_kwargs["option_repository"] is not None
+    assert calls[-1] == ("exit", None)

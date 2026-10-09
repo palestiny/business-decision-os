@@ -58,6 +58,7 @@ An OIDC/JWT PrincipalProvider adapter now exists at `src/decision_os/infrastruct
 - [x] Verify submit-options runtime composition: PostgreSQL integration covers evidence-backed finding prerequisite, option persistence, `ANALYZING → OPTIONS_READY` state/version transition, idempotent replay, and correlation propagation; CI Runs #1051/#1052 passed on Python 3.12/3.13 at commit `be9731824a6d24141b52ee132110ff2c33772188` (208 tests per version, migration lifecycle and Alembic checks passed).
 - [x] Verify await-decision runtime: PostgreSQL integration covers `OPTIONS_READY → AWAITING_DECISION` (version 3 → 4), `AWAIT_DECISION` permission, idempotent replay, correlation propagation, and persisted state/version; CI Runs #1055/#1056 passed on Python 3.12/3.13 at commit `3c23c3a63772caa12490af8b748c24a2d0d1d7f1` (209 tests per version, migration lifecycle and `alembic check` passed).
 - [ ] Compose further command routes only after their dependencies and lifecycles are explicit.
+- [ ] Make-decision must only be mounted when an explicit `PolicyEvaluatorPort` is injected; no default approval policy is inferred from RBAC.
 
 ## Acceptance criteria
 
