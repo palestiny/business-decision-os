@@ -1,0 +1,120 @@
+"""Application reliability boundary for externally retryable commands."""
+import hashlib
+import json
+from uuid import UUID
+
+from decision_os.application.commands.create_decision_case import (
+    CreateDecisionCaseCommand,
+    CreateDecisionCaseHandler,
+)
+from decision_os.application.ports.audit import AuditPort
+from decision_os.application.ports.idempotency import IdempotencyPort
+from decision_os.application.ports.outbox import OutboxPort
+from decision_os.application.ports.unit_of_work import UnitOfWork
+from decision_os.application.reliability_executor import ReliabilityExecutor, ReliabilitySpec
+from decision_os.domain.decision_case import DecisionCase
+
+
+class CreateDecisionCaseReliabilityBoundary:
+    """Command-specific reliability contract backed by the generic executor."""
+
+    OPERATION = "CreateDecisionCase"
+    RESPONSE_STATUS = 201
+
+    def __init__(
+        self,
+        *,
+        uow: UnitOfWork,
+        handler: CreateDecisionCaseHandler,
+        idempotency: IdempotencyPort,
+        audit: AuditPort,
+        outbox: OutboxPort,
+    ) -> None:
+        self._uow = uow
+        self._handler = handler
+        self._idempotency = idempotency
+        self._audit = audit
+        self._outbox = outbox
+        self._executor = ReliabilityExecutor(
+            uow=uow,
+            idempotency=idempotency,
+            audit=audit,
+            outbox=outbox,
+        )
+
+    def execute(
+        self,
+        command: CreateDecisionCaseCommand,
+        *,
+        idempotency_key: str,
+        correlation_id: UUID | None = None,
+    ) -> DecisionCase:
+        return self._executor.execute(
+            command,
+            spec=ReliabilitySpec(
+                operation=self.OPERATION,
+                response_status=self.RESPONSE_STATUS,
+                tenant_id=lambda value: value.tenant_id,
+                request_hash=self._request_hash,
+                actor_id=lambda value: value.actor_id,
+                execute=self._handler.handle,
+                entity_id=lambda value: value.id,
+                entity_type="DecisionCase",
+                serialize=self._serialize_case,
+                deserialize=self._deserialize_case,
+                outbox_topic="decision-case.created",
+                outbox_payload=lambda case: json.dumps(
+                    {"case_id": str(case.id), "tenant_id": str(case.tenant_id)},
+                    sort_keys=True,
+                ),
+            ),
+            idempotency_key=idempotency_key,
+            correlation_id=correlation_id,
+        )
+
+    @staticmethod
+    def _request_hash(command: CreateDecisionCaseCommand) -> str:
+        payload = json.dumps(
+            {
+                "tenant_id": str(command.tenant_id),
+                "case_type": command.case_type,
+                "title": command.title,
+                "actor_id": str(command.actor_id),
+                "case_id": str(command.case_id) if command.case_id else None,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _serialize_case(case: DecisionCase) -> str:
+        return json.dumps(
+            {
+                "id": str(case.id),
+                "tenant_id": str(case.tenant_id),
+                "case_type": case.case_type,
+                "title": case.title,
+                "created_by": str(case.created_by) if case.created_by else None,
+                "status": case.status.value,
+                "version": case.version,
+            },
+            sort_keys=True,
+        )
+
+    @staticmethod
+    def _deserialize_case(body: str | None) -> DecisionCase:
+        if not body:
+            raise RuntimeError("completed idempotency record has no response")
+        data = json.loads(body)
+        from decision_os.domain.decision_case import CaseStatus
+
+        return DecisionCase(
+            id=UUID(data["id"]),
+            tenant_id=UUID(data["tenant_id"]),
+            case_type=data["case_type"],
+            title=data["title"],
+            created_by=UUID(data["created_by"]) if data.get("created_by") else None,
+            status=CaseStatus(data["status"]),
+            version=data["version"],
+        )

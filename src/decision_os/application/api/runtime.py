@@ -1,0 +1,166 @@
+"""Explicit production runtime composition for the first vertical slice."""
+from fastapi import FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from decision_os.application.api.app import create_app
+from decision_os.application.api.dependencies import PrincipalProvider
+from decision_os.application.approval_policy import RequireApprovalForEveryDecisionPolicy
+from decision_os.application.ports.authority import AuthorizationPort, PolicyEvaluatorPort
+from decision_os.infrastructure.authentication.oidc_jwt import OIDCJWTPrincipalProvider
+from decision_os.infrastructure.persistence.authorization import SQLAlchemyAuthorizationAdapter
+from decision_os.infrastructure.persistence.readers.decision_work_queue import SessionFactoryDecisionWorkQueueReader
+from decision_os.infrastructure.persistence.resolvers.external_identity import SQLAlchemyExternalIdentityResolver
+from decision_os.infrastructure.persistence.runtime_composition import (
+    SessionScopedCreateDecisionCaseBoundary,
+    SessionScopedTriageCaseBoundary,
+    SessionScopedStartAnalysisBoundary,
+    SessionScopedCreateEvidenceBoundary,
+    SessionScopedAddAnalysisFindingBoundary,
+    SessionScopedSubmitOptionsBoundary,
+    SessionScopedAwaitDecisionBoundary,
+    SessionScopedMakeDecisionBoundary,
+    SessionScopedApproveDecisionBoundary,
+    SessionScopedRejectDecisionBoundary,
+    SessionScopedCreateActionBoundary,
+    SessionScopedStartActionBoundary,
+    SessionScopedCompleteActionExecutionBoundary,
+    SessionScopedMarkExecutionUnknownBoundary,
+    SessionScopedReconcileUnknownExecutionBoundary,
+    SessionScopedCreateExpectedOutcomeBoundary,
+    SessionScopedRecordActualOutcomeBoundary,
+    SessionScopedVerifyOutcomeBoundary,
+)
+
+
+def build_runtime_app(
+    *,
+    database_url: str | None,
+    authorization: AuthorizationPort | None = None,
+    principal_provider: PrincipalProvider | None = None,
+    policy_evaluator: PolicyEvaluatorPort | None = None,
+) -> FastAPI:
+    """Build runtime composition with fail-closed database-backed RBAC by default.
+
+    An explicitly injected AuthorizationPort may replace RBAC (for example, an
+    enterprise policy adapter). Otherwise, SQLAlchemyAuthorizationAdapter checks
+    active actors, tenant memberships, role assignments, and permission grants.
+    If no principal provider is injected, configured OIDC/JWT validation and the
+    database-backed external identity resolver are wired automatically.
+    Database migrations and trusted membership provisioning must happen separately.
+    """
+    if not database_url or not database_url.strip():
+        raise RuntimeError("SQLALCHEMY_DATABASE_URL is required to start the Decision OS runtime")
+
+    engine = create_engine(database_url, pool_pre_ping=True)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    try:
+        if authorization is None:
+            authorization = SQLAlchemyAuthorizationAdapter(session_factory)
+        if principal_provider is None:
+            resolver = SQLAlchemyExternalIdentityResolver(session_factory)
+            principal_provider = OIDCJWTPrincipalProvider.from_environment(resolver=resolver)
+    except Exception:
+        engine.dispose()
+        raise
+
+    create_case_boundary = SessionScopedCreateDecisionCaseBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    triage_case_boundary = SessionScopedTriageCaseBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    start_analysis_boundary = SessionScopedStartAnalysisBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    create_evidence_boundary = SessionScopedCreateEvidenceBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    add_analysis_finding_boundary = SessionScopedAddAnalysisFindingBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    submit_options_boundary = SessionScopedSubmitOptionsBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    await_decision_boundary = SessionScopedAwaitDecisionBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+    )
+    # First-release policy is explicit and deterministic: every decision requires
+    # independent approval. Deployments may replace it through the PolicyEvaluatorPort.
+    effective_policy_evaluator = (
+        policy_evaluator
+        if policy_evaluator is not None
+        else RequireApprovalForEveryDecisionPolicy()
+    )
+    make_decision_boundary = SessionScopedMakeDecisionBoundary(
+        session_factory=session_factory,
+        authorization=authorization,
+        policy_evaluator=effective_policy_evaluator,
+    )
+    approve_decision_boundary = SessionScopedApproveDecisionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    reject_decision_boundary = SessionScopedRejectDecisionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    create_action_boundary = SessionScopedCreateActionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    start_action_boundary = SessionScopedStartActionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    complete_execution_boundary = SessionScopedCompleteActionExecutionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    mark_unknown_execution_boundary = SessionScopedMarkExecutionUnknownBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    reconcile_execution_boundary = SessionScopedReconcileUnknownExecutionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    create_expected_outcome_boundary = SessionScopedCreateExpectedOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    record_actual_outcome_boundary = SessionScopedRecordActualOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    verify_outcome_boundary = SessionScopedVerifyOutcomeBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    queue_reader = SessionFactoryDecisionWorkQueueReader(session_factory)
+    app = create_app(
+        create_case_boundary=create_case_boundary,
+        triage_case_boundary=triage_case_boundary,
+        start_analysis_boundary=start_analysis_boundary,
+        create_evidence_boundary=create_evidence_boundary,
+        add_analysis_finding_boundary=add_analysis_finding_boundary,
+        submit_options_boundary=submit_options_boundary,
+        await_decision_boundary=await_decision_boundary,
+        make_decision_boundary=make_decision_boundary,
+        approve_decision_boundary=approve_decision_boundary,
+        reject_decision_boundary=reject_decision_boundary,
+        create_action_boundary=create_action_boundary,
+        start_action_boundary=start_action_boundary,
+        complete_execution_boundary=complete_execution_boundary,
+        mark_unknown_execution_boundary=mark_unknown_execution_boundary,
+        reconcile_execution_boundary=reconcile_execution_boundary,
+        create_expected_outcome_boundary=create_expected_outcome_boundary,
+        record_actual_outcome_boundary=record_actual_outcome_boundary,
+        verify_outcome_boundary=verify_outcome_boundary,
+        decision_work_queue_reader=queue_reader,
+        authorization=authorization,
+        principal_provider=principal_provider,
+    )
+
+    @app.on_event("shutdown")
+    def dispose_database_engine() -> None:
+        engine.dispose()
+
+    return app
