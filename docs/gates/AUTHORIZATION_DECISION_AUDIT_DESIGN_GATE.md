@@ -2,9 +2,9 @@
 
 ## Status
 
-**OPEN — RECOMMENDED OPTION B: DURABLE DATABASE AUDIT FOR EACH COMPLETED ALLOW/DENY DECISION.**
+**OPTION B APPROVED AND IMPLEMENTED — CI VERIFICATION AND OPERATING-POLICY CLOSURE PENDING.**
 
-The tenant-scoped RBAC adapter currently evaluates active actor, membership, role assignment, role, and permission records. Denials are written to application logs, while trusted provisioning changes have a separate durable administration audit. There is not yet a durable record for every authorization decision, including successful grants.
+The tenant-scoped RBAC adapter now evaluates active actor, membership, role assignment, role, and permission records and writes a durable PostgreSQL audit row for each completed allow/deny evaluation. Trusted provisioning changes remain in the separate administration audit.
 
 ## Security objective
 
@@ -33,17 +33,15 @@ Make it possible to reconstruct which actor was allowed or denied a protected op
 
 ## Acceptance criteria
 
-- [ ] Product owner approves Option B or chooses A/C.
-- [ ] Every completed authorization allow and deny has one durable row.
-- [ ] Denial audit commits before AuthorizationDenied is raised.
-- [ ] Audit insertion/commit failure causes fail-closed PolicyEvaluationUnavailable.
-- [ ] Policy-store unavailability also fails closed and emits a structured operational log.
-- [ ] Audit rows contain no bearer tokens or raw JWT claims.
-- [ ] Unit tests cover allow, deny, generic reason codes, audit failure, and policy-store failure.
-- [ ] PostgreSQL integration verifies durable allow/deny rows, transaction behavior, and tenant/resource attribution.
-- [ ] Migration upgrade/downgrade/upgrade and alembic check pass.
-- [ ] CI passes on Python 3.12 and 3.13.
-- [ ] Retention and privileged-reader access are documented before production rollout.
+- [x] Product owner approved Option B.
+- [x] Added `authorization_decision_audit`, separate from administrative provisioning audit, with actor/tenant/permission/resource/outcome/reason/time/correlation and investigation indexes.
+- [x] Policy evaluation and audit insert commit in one transaction; a denial is raised only after its DENY audit row commits.
+- [x] Audit insert/commit failure and policy-store failure raise `PolicyEvaluationUnavailable`; no allow is returned without a committed audit.
+- [x] Generic reason codes avoid revealing which RBAC layer was missing; no credentials or raw JWT claims are recorded.
+- [x] Unit tests cover allow, deny, audit failure, and policy-store failure.
+- [x] PostgreSQL integration covers durable allow/deny rows and actor/tenant/resource/correlation attribution.
+- [ ] Migration lifecycle, `alembic check`, and CI verification on Python 3.12/3.13 — pending current commit verification.
+- [ ] Retention, backup/restore, and privileged-reader access remain deployment decisions before production rollout.
 
 ## Dependencies
 

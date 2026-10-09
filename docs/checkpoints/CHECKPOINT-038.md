@@ -43,9 +43,16 @@
 - Unit and PostgreSQL integration tests cover same-creator, same-decision-maker, missing legacy attribution, and distinct-approver persistence/replay.
 - CI Runs #995/#996 passed on Python 3.12/3.13 at commit `d293535e0fc0ac9bbe71a738867a03906a05195c`, with 200 tests per run and migration lifecycle/Alembic checks passing.
 
+## Authorization decision audit implementation (CI pending)
+- Product owner approved Option B: durable PostgreSQL audit for each completed allow/deny decision.
+- Added migration `0014_authorization_decision_audit`, model, indexes by tenant/time, actor/time, resource, and correlation ID.
+- Authorization policy query and audit insertion share one short transaction; DENY is committed before `AuthorizationDenied` is raised. Audit or policy-store failure denies via `PolicyEvaluationUnavailable`.
+- Read API authorization calls now attach request correlation IDs. Rows contain internal identifiers and bounded reason codes only, not bearer tokens or raw claims.
+- Added unit tests for allow/deny persistence and fail-closed audit-write failure, plus PostgreSQL integration for durable attribution. CI and migration verification are pending commit `07abb63e22fa1427100902f9c0160a7bf6809308`.
+
 ## Remaining before runtime/security gate closure
 1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`.
-2. Extend durable audit coverage to every authorization decision and all role/membership changes outside this CLI; provisioning grants/revokes are audited transactionally.
+2. Authorization-decision audit implementation is committed and awaiting CI; review any remaining direct/alternate authorization paths after CI.
 3. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 4. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.
 5. Validate product-facing queue usability and operator workflow.
