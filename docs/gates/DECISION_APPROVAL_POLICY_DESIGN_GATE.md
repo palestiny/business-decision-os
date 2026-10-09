@@ -2,9 +2,9 @@
 
 ## Status
 
-**OPTION A IMPLEMENTED — CI VERIFICATION IN PROGRESS; OPERATIONAL GATES REMAIN OPEN.**
+**PASS — OPTION A IMPLEMENTED AND VERIFIED IN CI; RUNTIME/DEPLOYMENT GATES REMAIN OPEN.**
 
-The product owner approved Option A. Runtime composition now uses `RequireApprovalForEveryDecisionPolicy` by default and mounts `POST /api/v1/decision-cases/{case_id}/decision`; every decision requires independent approval and stores a stable policy identifier. An explicitly injected `PolicyEvaluatorPort` can replace the default for a reviewed deployment-specific policy. CI Runs #1096/#1097 are verifying this implementation on Python 3.12 and 3.13.
+The product owner approved Option A. Runtime composition now uses `RequireApprovalForEveryDecisionPolicy` by default and mounts `POST /api/v1/decision-cases/{case_id}/decision`; every decision requires independent approval and stores a stable policy identifier. An explicitly injected `PolicyEvaluatorPort` can replace the default for a reviewed deployment-specific policy. CI Runs #1096/#1097 passed on Python 3.12 and 3.13; each reports 221 passing tests and successful migration lifecycle/Alembic checks.
 
 Four-eyes enforcement is implemented separately. Whenever approval is required, the approver must differ from both the case creator and decision maker; legacy cases without creator attribution fail closed.
 
@@ -49,7 +49,7 @@ If Option A is approved:
 - [x] Runtime keeps explicit policy injection available for a reviewed replacement policy.
 - [x] Unit tests cover deterministic approval requirement and stable policy identifier.
 - [x] PostgreSQL runtime integration exercises the default policy rather than injecting a test policy.
-- [ ] CI verification and migration checks for the final commit must pass before marking this gate PASS.
+- [x] CI Runs #1096/#1097 passed on Python 3.12 and 3.13 with 221 tests per version, migration upgrade/downgrade/upgrade, current-head verification, and `alembic check`.
 - [ ] Runtime/deployment security gates remain separate and open.
 
 ## Dependencies
