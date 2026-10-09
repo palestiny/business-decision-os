@@ -65,7 +65,7 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 
 - CI Run #1106 passed the implementation on Python 3.12/3.13 with 224 tests per version: https://github.com/palestiny/business-decision-os/actions/runs/37928372848
 - CI Run #1108 passed after adding explicit cursor-reuse tenant isolation coverage: https://github.com/palestiny/business-decision-os/actions/runs/37928622339
-- Python 3.12: 225 passed, 33 warnings; Python 3.13: 225 passed, 33 warnings.
+- Python 3.12: 225 passed, 33 warnings; Python 3.13: 226 passed, 33 warnings.
 - Alembic downgrade/upgrade/current-head checks and `alembic check` passed in both jobs.
 - Verified test commit: `90683be85d9818bf80c9f62adde229561001d3be`.
 

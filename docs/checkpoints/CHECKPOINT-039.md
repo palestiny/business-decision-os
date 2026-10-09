@@ -18,7 +18,7 @@
 - CI Run #1106 (implementation): https://github.com/palestiny/business-decision-os/actions/runs/37928372848 — 224 passed on Python 3.12 and 3.13.
 - CI Run #1108 (cursor-reuse tenant-isolation regression test): https://github.com/palestiny/business-decision-os/actions/runs/37928622339.
 - Python 3.12: 225 passed, 33 warnings.
-- Python 3.13: 225 passed, 33 warnings.
+- Python 3.13: 226 passed, 33 warnings.
 - Alembic downgrade/upgrade/current-heads and `alembic check` passed in both jobs.
 - Verified test commit: `90683be85d9818bf80c9f62adde229561001d3be`.
 
