@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.UPDATE_EXECUTION, Permission.RECONCILE_EXECUTION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.UPDATE_EXECUTION, Permission.RECONCILE_EXECUTION, Permission.CREATE_OUTCOME, Permission.VERIFY_OUTCOME, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
@@ -771,5 +771,99 @@ def test_runtime_marks_unknown_execution_then_reconciles_without_unsafe_retry():
             assert execution.status == "SUCCEEDED"
             assert case.status == "OUTCOME_PENDING"
             assert case.version == 9
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_composes_expected_actual_and_verified_outcome_lifecycle():
+    from datetime import datetime, timezone
+    from decision_os.infrastructure.persistence.models.outcome import ActualOutcomeModel, ExpectedOutcomeModel, VerificationModel
+
+    tenant_id, actor_id, case_id = uuid4(), uuid4(), uuid4()
+    expected_id, actual_id, verification_id = uuid4(), uuid4(), uuid4()
+    now = datetime.now(timezone.utc)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    try:
+        with factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-outcomes-{tenant_id}"))
+            session.flush()
+            session.add(DecisionCaseModel(
+                id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK",
+                title="Runtime outcome verification", created_by=uuid4(),
+                status="OUTCOME_PENDING", version=8, created_at=now, updated_at=now,
+            ))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+        expected_key = f"runtime-expected-outcome-{uuid4()}"
+        actual_key = f"runtime-actual-outcome-{uuid4()}"
+        verify_key = f"runtime-verify-outcome-{uuid4()}"
+        with TestClient(app) as client:
+            expected_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/expected",
+                headers={"Idempotency-Key": expected_key},
+                json={"outcome_id": str(expected_id), "metric": "margin_percent", "operator": "GTE", "target": 10},
+            )
+            assert expected_response.status_code == 201, expected_response.text
+            assert expected_response.json()["data"]["id"] == str(expected_id)
+            assert expected_response.headers["X-Correlation-ID"] == expected_response.json()["correlation_id"]
+            expected_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/expected",
+                headers={"Idempotency-Key": expected_key},
+                json={"outcome_id": str(expected_id), "metric": "margin_percent", "operator": "GTE", "target": 10},
+            )
+            assert expected_replay.status_code == 201, expected_replay.text
+            assert expected_replay.json()["data"]["id"] == str(expected_id)
+
+            actual_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/actual",
+                headers={"Idempotency-Key": actual_key},
+                json={"outcome_id": str(actual_id), "expected_outcome_id": str(expected_id), "observed_value": 12},
+            )
+            assert actual_response.status_code == 201, actual_response.text
+            assert actual_response.json()["data"]["status"] == "OBSERVED"
+            assert actual_response.headers["X-Correlation-ID"] == actual_response.json()["correlation_id"]
+            actual_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/actual",
+                headers={"Idempotency-Key": actual_key},
+                json={"outcome_id": str(actual_id), "expected_outcome_id": str(expected_id), "observed_value": 12},
+            )
+            assert actual_replay.status_code == 201, actual_replay.text
+            assert actual_replay.json()["data"]["id"] == str(actual_id)
+
+            verify_response = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/{actual_id}/verify",
+                headers={"Idempotency-Key": verify_key, "X-Verification-ID": str(verification_id)},
+            )
+            assert verify_response.status_code == 200, verify_response.text
+            assert verify_response.json()["data"]["status"] == "PASSED"
+            assert verify_response.headers["X-Correlation-ID"] == verify_response.json()["correlation_id"]
+            verify_replay = client.post(
+                f"/api/v1/decision-cases/{case_id}/outcomes/{actual_id}/verify",
+                headers={"Idempotency-Key": verify_key, "X-Verification-ID": str(verification_id)},
+            )
+            assert verify_replay.status_code == 200, verify_replay.text
+            assert verify_replay.json()["data"]["status"] == "PASSED"
+
+        with factory() as session:
+            case = session.get(DecisionCaseModel, case_id)
+            expected = session.get(ExpectedOutcomeModel, expected_id)
+            actual = session.get(ActualOutcomeModel, actual_id)
+            verification = session.get(VerificationModel, verification_id)
+            assert case is not None and case.status == "CLOSED" and case.version == 10
+            assert expected is not None and expected.metric == "margin_percent" and float(expected.target) == 10
+            assert actual is not None and actual.status == "VERIFIED"
+            assert verification is not None and verification.status == "PASSED"
     finally:
         engine.dispose()
