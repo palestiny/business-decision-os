@@ -12,7 +12,7 @@ class CompleteActionExecutionCommand:
     execution_id: UUID
     actor_id: UUID
     outcome: ActionExecutionStatus
-
+    correlation_id: UUID | None = None
 
 class CompleteActionExecutionHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -28,7 +28,7 @@ class CompleteActionExecutionHandler:
         action = self._uow.actions.get(execution.action_id, command.tenant_id)
         if action is None:
             raise InvalidAction("action not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=action.case_id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.UPDATE_EXECUTION, resource_id=action.case_id, correlation_id=command.correlation_id)
         if action.status is not ActionStatus.EXECUTING:
             raise InvalidAction("action must be executing")
         expected_execution_status = execution.status

@@ -14,7 +14,7 @@ class CreateDecisionCaseCommand:
     title: str
     actor_id: UUID
     case_id: UUID | None = None
-
+    correlation_id: UUID | None = None
 
 class CreateDecisionCaseHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -27,8 +27,7 @@ class CreateDecisionCaseHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.CREATE_CASE,
-            resource_id=case_id,
-        )
+            resource_id=case_id,, correlation_id=command.correlation_id)
         case = DecisionCase.create(
             id=case_id,
             tenant_id=command.tenant_id,

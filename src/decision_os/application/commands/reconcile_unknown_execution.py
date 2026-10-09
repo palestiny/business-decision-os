@@ -12,7 +12,7 @@ class ReconcileUnknownExecutionCommand:
     execution_id: UUID
     actor_id: UUID
     observed_outcome: ActionExecutionStatus
-
+    correlation_id: UUID | None = None
 
 class ReconcileUnknownExecutionHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -28,7 +28,7 @@ class ReconcileUnknownExecutionHandler:
         action = self._uow.actions.get(execution.action_id, command.tenant_id)
         if action is None:
             raise InvalidAction("action not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.RECONCILE_EXECUTION, resource_id=action.case_id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.RECONCILE_EXECUTION, resource_id=action.case_id, correlation_id=command.correlation_id)
         if execution.status is not ActionExecutionStatus.UNKNOWN:
             raise InvalidAction("only unknown executions can be reconciled")
         if action.status is not ActionStatus.EXECUTING:

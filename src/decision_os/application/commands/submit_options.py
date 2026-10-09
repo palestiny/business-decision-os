@@ -20,7 +20,7 @@ class SubmitOptionsCommand:
     case_id: UUID
     actor_id: UUID
     options: tuple[tuple[UUID, str], ...]
-
+    correlation_id: UUID | None = None
 
 class SubmitOptionsHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -35,8 +35,7 @@ class SubmitOptionsHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.SUBMIT_OPTIONS,
-            resource_id=command.case_id,
-        )
+            resource_id=command.case_id,, correlation_id=command.correlation_id)
         if not command.options:
             raise InvalidDecision("at least one decision option is required")
         if len({option_id for option_id, _ in command.options}) != len(command.options):

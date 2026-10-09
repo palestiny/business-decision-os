@@ -185,7 +185,7 @@ def build_router(
         case = boundary.execute(
             CreateDecisionCaseCommand(
                 tenant_id=principal.tenant_id,
-                actor_id=principal.actor_id,
+                actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                 case_type=body.case_type,
                 title=body.title,
                 case_id=body.case_id,
@@ -206,7 +206,7 @@ def build_router(
             case = triage_boundary.execute(
                 TriageCaseCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                 ),
                 idempotency_key=idempotency_key,
@@ -226,7 +226,7 @@ def build_router(
             decision = make_decision_boundary.execute(
                 MakeDecisionCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                     decision_id=body.decision_id,
                     option_ids=body.option_ids,
@@ -249,7 +249,7 @@ def build_router(
             decision = approve_decision_boundary.execute(
                 ApproveDecisionCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                     decision_id=decision_id,
                 ),
@@ -270,7 +270,7 @@ def build_router(
             decision = reject_decision_boundary.execute(
                 RejectDecisionCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                     decision_id=decision_id,
                 ),
@@ -291,7 +291,7 @@ def build_router(
             result = submit_options_boundary.execute(
                 SubmitOptionsCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                     options=tuple((item.id, item.title) for item in body),
                 ),
@@ -317,7 +317,7 @@ def build_router(
             idempotency_key: str = Header(..., alias="Idempotency-Key"),
         ) -> dict[str, object]:
             case = await_decision_boundary.execute(
-                AwaitDecisionCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id),
+                AwaitDecisionCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id),
                 idempotency_key=idempotency_key,
                 correlation_id=request.state.correlation_id,
             )
@@ -334,7 +334,7 @@ def build_router(
             case = start_analysis_boundary.execute(
                 StartAnalysisCommand(
                     tenant_id=principal.tenant_id,
-                    actor_id=principal.actor_id,
+                    actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id,
                 ),
                 idempotency_key=idempotency_key,
@@ -354,7 +354,7 @@ def build_router(
         ) -> dict[str, object]:
             action = create_action_boundary.execute(
                 CreateActionCommand(
-                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     case_id=case_id, decision_id=body.decision_id,
                     action_type=body.action_type, parameters=body.parameters,
                     action_id=body.action_id,
@@ -381,7 +381,7 @@ def build_router(
         ) -> dict[str, object]:
             execution = start_action_boundary.execute(
                 StartActionCommand(
-                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     action_id=action_id,
                 ),
                 idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
@@ -405,7 +405,7 @@ def build_router(
         ) -> dict[str, object]:
             execution = complete_execution_boundary.execute(
                 CompleteActionExecutionCommand(
-                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     execution_id=execution_id, outcome=outcome,
                 ),
                 idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
@@ -426,7 +426,7 @@ def build_router(
         ) -> dict[str, object]:
             execution = reconcile_execution_boundary.execute(
                 ReconcileUnknownExecutionCommand(
-                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     execution_id=execution_id, observed_outcome=observed_outcome,
                 ),
                 idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
@@ -442,7 +442,7 @@ def build_router(
         def create_evidence(case_id: UUID, body: EvidenceRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
             from datetime import datetime
             evidence = create_evidence_boundary.execute(CreateEvidenceCommand(
-                tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id,
+                tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id,
                 evidence_id=body.evidence_id, source=body.source, metric=body.metric, value=body.value,
                 unit=body.unit, period=body.period, captured_at=datetime.fromisoformat(body.captured_at),
                 confidence=body.confidence, snapshot=body.snapshot,
@@ -453,7 +453,7 @@ def build_router(
         @router.post("/decision-cases/{case_id}/analysis/findings", status_code=201)
         def add_analysis_finding(case_id: UUID, body: AnalysisFindingRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
             finding = add_analysis_finding_boundary.execute(AddAnalysisFindingCommand(
-                tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id,
+                tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id,
                 finding_id=body.finding_id, kind=body.kind, statement=body.statement,
                 confidence=body.confidence, evidence_ids=body.evidence_ids,
             ), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
@@ -462,19 +462,19 @@ def build_router(
     if create_expected_outcome_boundary is not None:
         @router.post("/decision-cases/{case_id}/outcomes/expected", status_code=201)
         def create_expected_outcome(case_id: UUID, body: ExpectedOutcomeRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
-            outcome = create_expected_outcome_boundary.execute(CreateExpectedOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, outcome_id=body.outcome_id, metric=body.metric, operator=body.operator, target=body.target), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            outcome = create_expected_outcome_boundary.execute(CreateExpectedOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id, outcome_id=body.outcome_id, metric=body.metric, operator=body.operator, target=body.target), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
             return {"data": {"id": str(outcome.id), "case_id": str(outcome.case_id), "metric": outcome.metric, "operator": outcome.operator, "target": outcome.target}, "correlation_id": str(request.state.correlation_id)}
 
     if record_actual_outcome_boundary is not None:
         @router.post("/decision-cases/{case_id}/outcomes/actual", status_code=201)
         def record_actual_outcome(case_id: UUID, body: ActualOutcomeRequest, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key")) -> dict[str, object]:
-            outcome = record_actual_outcome_boundary.execute(RecordActualOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, outcome_id=body.outcome_id, expected_outcome_id=body.expected_outcome_id, observed_value=body.observed_value), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            outcome = record_actual_outcome_boundary.execute(RecordActualOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id, outcome_id=body.outcome_id, expected_outcome_id=body.expected_outcome_id, observed_value=body.observed_value), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
             return {"data": {"id": str(outcome.id), "case_id": str(outcome.case_id), "expected_outcome_id": str(outcome.expected_outcome_id), "observed_value": outcome.observed_value, "status": outcome.status.value}, "correlation_id": str(request.state.correlation_id)}
 
     if verify_outcome_boundary is not None:
         @router.post("/decision-cases/{case_id}/outcomes/{actual_outcome_id}/verify", status_code=200)
         def verify_outcome(case_id: UUID, actual_outcome_id: UUID, request: Request, principal: AuthenticatedPrincipal = Depends(principal_provider), idempotency_key: str = Header(..., alias="Idempotency-Key"), verification_id: UUID = Header(..., alias="X-Verification-ID")) -> dict[str, object]:
-            verification = verify_outcome_boundary.execute(VerifyOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, case_id=case_id, verification_id=verification_id, actual_outcome_id=actual_outcome_id), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
+            verification = verify_outcome_boundary.execute(VerifyOutcomeCommand(tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id, case_id=case_id, verification_id=verification_id, actual_outcome_id=actual_outcome_id), idempotency_key=idempotency_key, correlation_id=request.state.correlation_id)
             return {"data": {"id": str(verification.id), "case_id": str(verification.case_id), "actual_outcome_id": str(verification.actual_outcome_id), "status": verification.status.value}, "correlation_id": str(request.state.correlation_id)}
     if mark_unknown_execution_boundary is not None:
         @router.post("/action-executions/{execution_id}/unknown", status_code=200)
@@ -486,7 +486,7 @@ def build_router(
         ) -> dict[str, object]:
             execution = mark_unknown_execution_boundary.execute(
                 MarkExecutionUnknownCommand(
-                    tenant_id=principal.tenant_id, actor_id=principal.actor_id,
+                    tenant_id=principal.tenant_id, actor_id=principal.actor_id, correlation_id=request.state.correlation_id,
                     execution_id=execution_id,
                 ),
                 idempotency_key=idempotency_key, correlation_id=request.state.correlation_id,
@@ -504,7 +504,7 @@ def build_router(
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
             authorization.require(
-                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                actor_id=principal.actor_id, correlation_id=request.state.correlation_id, tenant_id=principal.tenant_id,
                 permission=Permission.VIEW_DECISION_HISTORY, resource_id=case_id, correlation_id=request.state.correlation_id,
             )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
@@ -549,7 +549,7 @@ def build_router(
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
             authorization.require(
-                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                actor_id=principal.actor_id, correlation_id=request.state.correlation_id, tenant_id=principal.tenant_id,
                 permission=Permission.VIEW_DECISION_MEMORY, resource_id=case_id, correlation_id=request.state.correlation_id,
             )
             view = decision_memory_reader.get(tenant_id=principal.tenant_id, case_id=case_id)
@@ -592,7 +592,7 @@ def build_router(
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
             authorization.require(
-                actor_id=principal.actor_id, tenant_id=principal.tenant_id,
+                actor_id=principal.actor_id, correlation_id=request.state.correlation_id, tenant_id=principal.tenant_id,
                 permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=principal.tenant_id, correlation_id=request.state.correlation_id,
             )
             items = decision_work_queue_reader.list(tenant_id=principal.tenant_id)

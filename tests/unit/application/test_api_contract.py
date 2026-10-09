@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
@@ -56,6 +56,7 @@ def test_create_case_maps_authenticated_identity_and_returns_stable_response():
     assert body["correlation_id"] == response.headers["X-Correlation-ID"]
     assert body["data"]["case_type"] == "PROJECT_MARGIN_RISK"
     assert boundary.calls[0][1] == "create-001"
+    assert boundary.calls[0][0].correlation_id == UUID(body["correlation_id"])
 
 
 def test_create_case_ignores_client_supplied_identity_headers():

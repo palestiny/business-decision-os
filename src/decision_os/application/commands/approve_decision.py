@@ -13,7 +13,7 @@ class ApproveDecisionCommand:
     case_id: UUID
     decision_id: UUID
     actor_id: UUID
-
+    correlation_id: UUID | None = None
 
 class ApproveDecisionHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -29,8 +29,7 @@ class ApproveDecisionHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.APPROVE_DECISION,
-            resource_id=command.case_id,
-        )
+            resource_id=command.case_id,, correlation_id=command.correlation_id)
 
         decision = self._uow.decisions.get(command.decision_id, command.tenant_id)
         if decision is None or decision.case_id != case.id:

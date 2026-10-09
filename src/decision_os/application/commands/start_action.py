@@ -13,7 +13,7 @@ class StartActionCommand:
     action_id: UUID
     actor_id: UUID
     execution_id: UUID | None = None
-
+    correlation_id: UUID | None = None
 
 class StartActionHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -26,8 +26,7 @@ class StartActionHandler:
             raise InvalidAction("action not found")
         self._authorization.require(
             actor_id=command.actor_id, tenant_id=command.tenant_id,
-            permission=Permission.START_ACTION, resource_id=action.case_id,
-        )
+            permission=Permission.START_ACTION, resource_id=action.case_id,, correlation_id=command.correlation_id)
         if action.status is not ActionStatus.READY:
             raise InvalidAction("action must be ready before execution")
         case = self._uow.decision_cases.get(action.case_id, command.tenant_id)

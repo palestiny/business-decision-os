@@ -18,7 +18,7 @@ class MakeDecisionCommand:
     option_ids: tuple[UUID, ...]
     rationale: str
     actor_id: UUID
-
+    correlation_id: UUID | None = None
 
 class MakeDecisionHandler:
     def __init__(
@@ -45,8 +45,7 @@ class MakeDecisionHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.MAKE_DECISION,
-            resource_id=command.case_id,
-        )
+            resource_id=command.case_id,, correlation_id=command.correlation_id)
         approval = self._policy_evaluator.evaluate(
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,

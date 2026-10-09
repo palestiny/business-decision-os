@@ -11,7 +11,7 @@ class StartAnalysisCommand:
     tenant_id: UUID
     case_id: UUID
     actor_id: UUID
-
+    correlation_id: UUID | None = None
 
 class StartAnalysisHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -26,8 +26,7 @@ class StartAnalysisHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.START_ANALYSIS,
-            resource_id=command.case_id,
-        )
+            resource_id=command.case_id,, correlation_id=command.correlation_id)
         case.start_analysis()
         self._uow.decision_cases.save(case)
         return case

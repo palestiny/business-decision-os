@@ -14,7 +14,7 @@ class RecordActualOutcomeCommand:
     outcome_id: UUID
     expected_outcome_id: UUID
     observed_value: float
-
+    correlation_id: UUID | None = None
 
 class RecordActualOutcomeHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -28,7 +28,7 @@ class RecordActualOutcomeHandler:
         expected = self._uow.expected_outcomes.get(command.expected_outcome_id, command.tenant_id)
         if expected is None or expected.case_id != case.id:
             raise InvalidOutcome("expected outcome not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_OUTCOME, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_OUTCOME, resource_id=case.id, correlation_id=command.correlation_id)
         outcome = ActualOutcome(id=command.outcome_id, case_id=case.id, expected_outcome_id=expected.id, observed_value=command.observed_value)
         self._uow.actual_outcomes.add(outcome, command.tenant_id)
         return outcome

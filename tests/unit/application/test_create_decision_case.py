@@ -67,4 +67,20 @@ def test_create_case_persists_without_committing() -> None:
         "tenant_id": tenant_id,
         "permission": Permission.CREATE_CASE,
         "resource_id": case.id,
+        "correlation_id": None,
     }]
+
+
+def test_create_case_passes_command_correlation_id_to_authorization():
+    uow = FakeUow()
+    authorization = Authorization()
+    handler = CreateDecisionCaseHandler(uow, authorization)
+    correlation_id = uuid4()
+    command = CreateDecisionCaseCommand(
+        tenant_id=uuid4(), actor_id=uuid4(), case_type="PROJECT_MARGIN_RISK",
+        title="Correlation audit", correlation_id=correlation_id,
+    )
+
+    handler.handle(command)
+
+    assert authorization.calls[0]["correlation_id"] == correlation_id

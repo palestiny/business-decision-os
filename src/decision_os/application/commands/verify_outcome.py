@@ -13,7 +13,7 @@ class VerifyOutcomeCommand:
     actor_id: UUID
     verification_id: UUID
     actual_outcome_id: UUID
-
+    correlation_id: UUID | None = None
 
 class VerifyOutcomeHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -30,7 +30,7 @@ class VerifyOutcomeHandler:
         expected = self._uow.expected_outcomes.get(actual.expected_outcome_id, command.tenant_id)
         if expected is None:
             raise InvalidOutcome("expected outcome not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.VERIFY_OUTCOME, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.VERIFY_OUTCOME, resource_id=case.id, correlation_id=command.correlation_id)
         previous_version = case.version
         if case.status.value == "OUTCOME_PENDING":
             case.start_verification()

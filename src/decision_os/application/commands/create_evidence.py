@@ -21,7 +21,7 @@ class CreateEvidenceCommand:
     captured_at: datetime
     confidence: float
     snapshot: str
-
+    correlation_id: UUID | None = None
 
 class CreateEvidenceHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -34,7 +34,7 @@ class CreateEvidenceHandler:
             raise InvalidEvidence("decision case not found")
         if case.status.value not in {"TRIAGED", "ANALYZING"}:
             raise InvalidEvidence("case is not ready to receive evidence")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_EVIDENCE, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_EVIDENCE, resource_id=case.id, correlation_id=command.correlation_id)
         evidence = Evidence.create(
             id=command.evidence_id, case_id=case.id, source=command.source, metric=command.metric,
             value=command.value, unit=command.unit, period=command.period,

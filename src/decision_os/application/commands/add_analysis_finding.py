@@ -16,7 +16,7 @@ class AddAnalysisFindingCommand:
     statement: str
     confidence: float
     evidence_ids: tuple[UUID, ...]
-
+    correlation_id: UUID | None = None
 
 class AddAnalysisFindingHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -29,7 +29,7 @@ class AddAnalysisFindingHandler:
             raise InvalidAnalysis("decision case not found")
         if case.status.value != "ANALYZING":
             raise InvalidAnalysis("case is not in analysis")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.ADD_ANALYSIS, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.ADD_ANALYSIS, resource_id=case.id, correlation_id=command.correlation_id)
         evidence = {item.id for item in self._uow.evidence.list_for_case(case.id, command.tenant_id)}
         if any(item not in evidence for item in command.evidence_ids):
             raise InvalidAnalysis("analysis references unknown evidence")

@@ -15,7 +15,7 @@ class CreateExpectedOutcomeCommand:
     metric: str
     operator: str
     target: float
-
+    correlation_id: UUID | None = None
 
 class CreateExpectedOutcomeHandler:
     def __init__(self, uow: UnitOfWork, authorization: AuthorizationPort) -> None:
@@ -26,7 +26,7 @@ class CreateExpectedOutcomeHandler:
         case = self._uow.decision_cases.get(command.case_id, command.tenant_id)
         if case is None:
             raise InvalidOutcome("decision case not found")
-        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_OUTCOME, resource_id=case.id)
+        self._authorization.require(actor_id=command.actor_id, tenant_id=command.tenant_id, permission=Permission.CREATE_OUTCOME, resource_id=case.id, correlation_id=command.correlation_id)
         outcome = ExpectedOutcome.create(id=command.outcome_id, case_id=case.id, metric=command.metric, operator=command.operator, target=command.target)
         self._uow.expected_outcomes.add(outcome, command.tenant_id)
         return outcome
