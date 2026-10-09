@@ -54,11 +54,12 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 - [x] History, memory, and work-queue API routes require explicit authorization; reader APIs cannot be composed without an AuthorizationPort.
 - [x] Migration upgrade/downgrade/upgrade and `alembic check` pass.
 - [x] CI Runs #967/#968 passed on Python 3.12 and 3.13 for commit `ca8e5272aaa8fa90d491e2b62677e109181f3bdc`; each run reports 184 passed tests.
+- [x] Durable allow/deny authorization audit stores actor, tenant, permission, resource, bounded reason code, timestamp, and correlation ID; audit persistence failure denies the request. CI Runs #1011/#1012 passed on Python 3.12/3.13 at commit `da4c67045073191df7307c88a2ea5f232b16cecc`; migration lifecycle, `alembic check`, and tests passed.
 
 ## Remaining before PASS
 
 - Trusted provisioning for identity mappings, memberships, and role assignments.
-- Durable audit of authorization decisions and role/membership changes.
+- Review retention, access, and operational recovery for durable authorization-decision and administrative audit records.
 - [x] Four-eyes separation-of-duties is implemented and verified in CI #995/#996 (200 tests per Python version); see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 - Decide whether permissions need to vary by case type.
 - Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
