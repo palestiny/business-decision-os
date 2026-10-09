@@ -135,7 +135,8 @@ def test_project_margin_risk_full_closed_loop(session: Session):
     ), idempotency_key="slice-decision")
     assert decision.status.value == "AWAITING_APPROVAL"
 
-    approve.execute(ApproveDecisionCommand(tenant_id, case_id, decision.id, actor_id), idempotency_key="slice-approval")
+    approver_id = uuid4()
+    approve.execute(ApproveDecisionCommand(tenant_id, case_id, decision.id, approver_id), idempotency_key="slice-approval")
 
     action = create_action.execute(CreateActionCommand(
         tenant_id=tenant_id, case_id=case_id, decision_id=decision.id, actor_id=actor_id,
