@@ -28,7 +28,8 @@ class RejectDecisionHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.REJECT_DECISION,
-            resource_id=command.case_id,, correlation_id=command.correlation_id)
+            resource_id=command.case_id,
+            correlation_id=command.correlation_id)
 
         decision = self._uow.decisions.get(command.decision_id, command.tenant_id)
         if decision is None or decision.case_id != case.id:

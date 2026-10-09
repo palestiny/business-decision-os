@@ -45,7 +45,8 @@ class MakeDecisionHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.MAKE_DECISION,
-            resource_id=command.case_id,, correlation_id=command.correlation_id)
+            resource_id=command.case_id,
+            correlation_id=command.correlation_id)
         approval = self._policy_evaluator.evaluate(
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,

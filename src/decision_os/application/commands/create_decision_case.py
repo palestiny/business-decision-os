@@ -27,7 +27,8 @@ class CreateDecisionCaseHandler:
             actor_id=command.actor_id,
             tenant_id=command.tenant_id,
             permission=Permission.CREATE_CASE,
-            resource_id=case_id,, correlation_id=command.correlation_id)
+            resource_id=case_id,
+            correlation_id=command.correlation_id)
         case = DecisionCase.create(
             id=case_id,
             tenant_id=command.tenant_id,

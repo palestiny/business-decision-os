@@ -30,7 +30,8 @@ class CreateActionHandler:
             raise InvalidAction("decision case not found")
         self._authorization.require(
             actor_id=command.actor_id, tenant_id=command.tenant_id,
-            permission=Permission.CREATE_ACTION, resource_id=command.case_id,, correlation_id=command.correlation_id)
+            permission=Permission.CREATE_ACTION, resource_id=command.case_id,
+            correlation_id=command.correlation_id)
         if case.status is not CaseStatus.APPROVED:
             raise InvalidAction("decision case must be approved before action creation")
         decision = self._uow.decisions.get(command.decision_id, command.tenant_id)
