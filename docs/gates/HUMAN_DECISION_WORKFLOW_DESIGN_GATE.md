@@ -36,9 +36,10 @@ Decision OS remains a decision-and-execution layer, not an ERP. The queue is a r
 - CI success verifies the current test workflow; it does not establish deployment-level composition or live production behavior.
 
 ## Explicit limitations / follow-up
-1. No deployment composition root is present in the repository tree. A deployable entry point must inject a request-lifecycle-safe session/reader when runtime packaging is added; do not create a global long-lived SQLAlchemy Session.
+1. A request-lifecycle-safe runtime composition root now exists and injects a session-factory-backed reader. Deployment identity settings and operational security evidence remain open; do not create a global long-lived SQLAlchemy Session.
 2. `projection_state` is null because this slice queries authoritative Decision Core tables directly instead of Decision Memory. This is intentional and must not be interpreted as projection freshness.
-3. Notifications, a generic workflow engine, a task aggregate, AI authority, external ERP/CRM integrations, and autonomous actions remain out of scope.
+3. The current queue returns an unbounded list and materializes all tenant rows before sorting. Resolve docs/gates/DECISION_WORK_QUEUE_USABILITY_DESIGN_GATE.md before scaling to large tenants.
+4. Notifications, a generic workflow engine, a task aggregate, AI authority, external ERP/CRM integrations, and autonomous actions remain out of scope.
 
 ## Decision
 **Keep the smallest read-only, tenant-scoped work queue.** Do not add a second workflow model or transactional source of truth. Continue with runtime composition and product-facing usability only when the application entry-point/deployment boundary is introduced and designed.
