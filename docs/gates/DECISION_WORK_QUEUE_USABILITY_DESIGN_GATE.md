@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPEN — THE CURRENT QUEUE IS TENANT-SCOPED AND CORRECT FOR THE VERIFIED SLICE, BUT RETURNS AN UNBOUNDED RESULT SET.**
+**CURSOR PAGINATION IMPLEMENTED; CI VERIFICATION PENDING.**
 
 The current GET /api/v1/decision-work-queue returns every matching case. The persistence reader loads joined case/decision/action rows, deduplicates and sorts them in application memory, then serializes the full list. This is acceptable for the first small test dataset, not for tenants with large case volumes.
 
@@ -41,9 +41,16 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 
 ## Open decision
 
-- [ ] Approve Option B and the defaults above.
-- [ ] Choose Option A if page-number navigation is a firm first-release requirement.
-- [ ] Defer all pagination only if the initial product explicitly caps each tenant's active decision cases and enforces that cap.
+- [x] Proceed with recommended Option B: keyset/cursor pagination.
+- [x] Defaults: limit=50, max=100; filters attention_state and case_type; versioned opaque cursor; live-view semantics.
+
+## Implementation in this slice
+
+- Reader now computes attention state and priority in SQL, applies tenant and optional filters in SQL, orders by priority then case UUID, and fetches only limit+1 rows.
+- READY-action detection uses a correlated EXISTS predicate rather than a one-to-many action join, avoiding duplicate cases and pagination boundary corruption.
+- Cursor v1 carries only the last priority and case UUID; tenant scope remains sourced exclusively from the authenticated principal and authorization is evaluated before each page query.
+- API returns `data`, `next_cursor`, and `correlation_id`; unknown filter values use the existing validation error contract and malformed cursors use `INVALID_CURSOR`.
+- Pages are live, not snapshots; refresh after actions that change attention state.
 
 ## Acceptance criteria
 

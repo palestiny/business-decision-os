@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from decision_os.application.api.errors import (
-    authentication_required_handler, authorization_denied_handler, concurrency_conflict_handler,
+    authentication_required_handler, authorization_denied_handler, concurrency_conflict_handler, invalid_queue_cursor_handler,
     domain_error_handler, error_payload, idempotency_conflict_handler, invalid_action_handler,
     policy_unavailable_handler, request_in_progress_handler, unexpected_error_handler,
 )
@@ -16,6 +16,7 @@ from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.application.ports.decision_memory import DecisionMemoryReader
 from decision_os.application.ports.decision_work_queue import DecisionWorkQueueReader
 from decision_os.application.ports.authority import AuthorizationDenied, AuthorizationPort, PolicyEvaluationUnavailable
+from decision_os.application.ports.decision_work_queue import InvalidQueueCursor
 from decision_os.application.ports.idempotency import IdempotencyConflict, RequestInProgress
 from decision_os.application.ports.reliability import ConcurrencyConflict
 from decision_os.domain.decision_case import DomainError
@@ -51,6 +52,7 @@ def create_app(*, create_case_boundary, triage_case_boundary=None, make_decision
 
     app.add_exception_handler(AuthenticationRequired, authentication_required_handler)
     app.add_exception_handler(AuthorizationDenied, authorization_denied_handler)
+    app.add_exception_handler(InvalidQueueCursor, invalid_queue_cursor_handler)
     app.add_exception_handler(IdempotencyConflict, idempotency_conflict_handler)
     app.add_exception_handler(RequestInProgress, request_in_progress_handler)
     app.add_exception_handler(ConcurrencyConflict, concurrency_conflict_handler)

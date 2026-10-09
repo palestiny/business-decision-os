@@ -1,13 +1,15 @@
 """Decision case HTTP routes."""
 from dataclasses import dataclass
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from decision_os.application.api.dependencies import PrincipalProvider, get_principal
 from decision_os.application.ports.authentication import AuthenticatedPrincipal
 from decision_os.application.ports.decision_memory import DecisionMemoryReader
 from decision_os.application.ports.decision_work_queue import DecisionWorkQueueReader
+from decision_os.application.ports.decision_work_queue import InvalidQueueCursor
 from decision_os.application.ports.authority import AuthorizationPort, Permission
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
@@ -589,13 +591,20 @@ def build_router(
         @router.get("/decision-work-queue", status_code=200)
         def get_decision_work_queue(
             request: Request,
+            limit: int = Query(50, ge=1, le=100),
+            cursor: str | None = None,
+            attention_state: Literal["REVIEW_CASE", "MAKE_DECISION", "APPROVE_DECISION", "EXECUTE_ACTION", "REVIEW_OUTCOME"] | None = None,
+            case_type: Literal["PROJECT_MARGIN_RISK", "RESOURCE_CAPACITY_RISK", "REVENUE_BILLING_LEAKAGE"] | None = None,
             principal: AuthenticatedPrincipal = Depends(principal_provider),
         ) -> dict[str, object]:
             authorization.require(
                 actor_id=principal.actor_id, tenant_id=principal.tenant_id,
                 permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=principal.tenant_id, correlation_id=request.state.correlation_id,
             )
-            items = decision_work_queue_reader.list(tenant_id=principal.tenant_id)
+            page = decision_work_queue_reader.list(
+                tenant_id=principal.tenant_id, limit=limit, cursor=cursor,
+                attention_state=attention_state, case_type=case_type,
+            )
             return {
                 "data": [
                     {
@@ -610,8 +619,9 @@ def build_router(
                         "authoritative_version": item.authoritative_version,
                         "projection_state": item.projection_state,
                     }
-                    for item in items
+                    for item in page.items
                 ],
+                "next_cursor": page.next_cursor,
                 "correlation_id": str(request.state.correlation_id),
             }
 

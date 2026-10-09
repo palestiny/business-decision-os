@@ -8,6 +8,7 @@ from decision_os.application.ports.authentication import AuthenticationRequired
 from decision_os.application.ports.reliability import ConcurrencyConflict
 from decision_os.domain.decision_case import DomainError
 from decision_os.domain.action import InvalidAction
+from decision_os.application.ports.decision_work_queue import InvalidQueueCursor
 
 
 def error_payload(code: str, message: str, correlation_id: str) -> dict[str, object]:
@@ -16,6 +17,10 @@ def error_payload(code: str, message: str, correlation_id: str) -> dict[str, obj
 
 def _correlation_id(request: Request) -> str:
     return str(getattr(request.state, "correlation_id"))
+
+
+async def invalid_queue_cursor_handler(request: Request, exc: InvalidQueueCursor) -> JSONResponse:
+    return JSONResponse(status_code=400, content=error_payload("INVALID_CURSOR", "The queue cursor is invalid or unsupported.", _correlation_id(request)))
 
 
 async def authentication_required_handler(request: Request, exc: AuthenticationRequired) -> JSONResponse:

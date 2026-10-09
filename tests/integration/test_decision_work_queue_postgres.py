@@ -80,6 +80,7 @@ def test_work_queue_is_tenant_scoped_and_omits_approved_case_without_ready_actio
 
     assert response.status_code == 200
     items = response.json()["data"]
+    assert response.json()["next_cursor"] is None
     assert [item["case_id"] for item in items] == [str(review_case)]
     assert items[0]["attention_state"] == "MAKE_DECISION"
     assert items[0]["authoritative_version"] == 3
@@ -111,3 +112,59 @@ def test_work_queue_marks_execute_only_when_action_is_ready(session: Session):
     assert items[0]["case_id"] == str(case_id)
     assert items[0]["attention_state"] == "EXECUTE_ACTION"
     assert items[0]["decision_id"] == str(decision_id)
+
+
+
+def test_work_queue_cursor_pages_are_bounded_and_do_not_duplicate_cases(session: Session):
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+    case_ids = [uuid4() for _ in range(5)]
+    for case_id in case_ids:
+        seed_case(session, tenant_id, case_id, "AWAITING_DECISION", f"Case {case_id}")
+    client = build_client(session, tenant_id)
+
+    first = client.get("/api/v1/decision-work-queue", params={"limit": 2})
+    assert first.status_code == 200
+    assert len(first.json()["data"]) == 2
+    assert first.json()["next_cursor"]
+
+    second = client.get("/api/v1/decision-work-queue", params={"limit": 2, "cursor": first.json()["next_cursor"]})
+    assert second.status_code == 200
+    assert len(second.json()["data"]) == 2
+
+    third = client.get("/api/v1/decision-work-queue", params={"limit": 2, "cursor": second.json()["next_cursor"]})
+    assert third.status_code == 200
+    assert len(third.json()["data"]) == 1
+    assert third.json()["next_cursor"] is None
+
+    collected = [row["case_id"] for response in (first, second, third) for row in response.json()["data"]]
+    assert len(collected) == len(set(collected)) == 5
+
+
+def test_work_queue_filters_compose_and_reject_unknown_values(session: Session):
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+    seed_case(session, tenant_id, uuid4(), "AWAITING_DECISION", "Decision case")
+    seed_case(session, tenant_id, uuid4(), "TRIAGED", "Review case")
+    client = build_client(session, tenant_id)
+
+    filtered = client.get("/api/v1/decision-work-queue", params={
+        "attention_state": "MAKE_DECISION", "case_type": "PROJECT_MARGIN_RISK", "limit": 10,
+    })
+    assert filtered.status_code == 200
+    assert len(filtered.json()["data"]) == 1
+    assert filtered.json()["data"][0]["attention_state"] == "MAKE_DECISION"
+
+    invalid = client.get("/api/v1/decision-work-queue", params={"attention_state": "NOPE"})
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_work_queue_rejects_malformed_cursor_with_standard_error(session: Session):
+    tenant_id = uuid4()
+    seed_tenant(session, tenant_id)
+    client = build_client(session, tenant_id)
+
+    response = client.get("/api/v1/decision-work-queue", params={"cursor": "not-a-valid-cursor"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_CURSOR"

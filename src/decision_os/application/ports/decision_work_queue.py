@@ -3,6 +3,10 @@ from uuid import UUID
 from typing import Protocol
 
 
+class InvalidQueueCursor(ValueError):
+    """The supplied cursor is malformed or uses an unsupported version."""
+
+
 @dataclass(frozen=True)
 class DecisionWorkQueueItem:
     tenant_id: UUID
@@ -18,6 +22,15 @@ class DecisionWorkQueueItem:
     projection_state: str | None
 
 
+@dataclass(frozen=True)
+class DecisionWorkQueuePage:
+    items: tuple[DecisionWorkQueueItem, ...]
+    next_cursor: str | None
+
+
 class DecisionWorkQueueReader(Protocol):
-    def list(self, *, tenant_id: UUID) -> tuple[DecisionWorkQueueItem, ...]:
-        """Return deterministic, tenant-scoped cases requiring human attention."""
+    def list(
+        self, *, tenant_id: UUID, limit: int = 50, cursor: str | None = None,
+        attention_state: str | None = None, case_type: str | None = None,
+    ) -> DecisionWorkQueuePage:
+        """Return a bounded, deterministic, tenant-scoped queue page."""

@@ -38,8 +38,8 @@ def test_reader_opens_and_closes_a_fresh_session_for_each_query():
 
     reader = SessionFactoryDecisionWorkQueueReader(session_factory)
 
-    assert reader.list(tenant_id=uuid4()) == ()
-    assert reader.list(tenant_id=uuid4()) == ()
+    assert reader.list(tenant_id=uuid4()).items == ()
+    assert reader.list(tenant_id=uuid4()).items == ()
 
     assert len(sessions) == 2
     assert sessions[0] is not sessions[1]
