@@ -60,4 +60,4 @@
 5. Validate product-facing queue usability and operator workflow.
 
 ## Decision
-Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, protected read routes, trusted provisioning implementation, and four-eyes approval are CI-verified. Trusted-environment operations, audit retention/access policy, command-authorization correlation propagation, and deployment configuration remain open.
+Do not label this production-ready or mark the runtime gate PASS yet. Runtime composition, OIDC wiring, RBAC, protected read routes, trusted provisioning implementation, and four-eyes approval are CI-verified. Trusted-environment operations, audit retention/access policy, and deployment configuration remain open. Command-authorization correlation propagation is verified in CI Runs #1023/#1024 (204 tests per supported Python version).

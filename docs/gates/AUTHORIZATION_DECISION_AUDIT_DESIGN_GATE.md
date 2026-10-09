@@ -2,7 +2,7 @@
 
 ## Status
 
-**OPTION B APPROVED AND IMPLEMENTED — CI VERIFICATION AND OPERATING-POLICY CLOSURE PENDING.**
+**OPTION B IMPLEMENTED AND VERIFIED IN CI — OPERATING-POLICY CLOSURE PENDING.**
 
 The tenant-scoped RBAC adapter now evaluates active actor, membership, role assignment, role, and permission records and writes a durable PostgreSQL audit row for each completed allow/deny evaluation. Trusted provisioning changes remain in the separate administration audit.
 
@@ -40,7 +40,9 @@ Make it possible to reconstruct which actor was allowed or denied a protected op
 - [x] Generic reason codes avoid revealing which RBAC layer was missing; no credentials or raw JWT claims are recorded.
 - [x] Unit tests cover allow, deny, audit failure, and policy-store failure.
 - [x] PostgreSQL integration covers durable allow/deny rows and actor/tenant/resource/correlation attribution.
-- [ ] Migration lifecycle, `alembic check`, and CI verification on Python 3.12/3.13 — pending current commit verification.
+- [x] Migration lifecycle, `alembic current --check-heads`, `alembic check`, and CI verification on Python 3.12/3.13 — Runs #1011/#1012 passed for the durable audit slice; command-correlation propagation then passed Runs #1023/#1024 with 204 tests per run.
+- [x] Request correlation IDs propagate from protected API commands into authorization decision audit rows; unit/API contract tests verify the path.
+- [ ] Retention, backup/restore, and privileged-reader access remain deployment decisions before production rollout.
 - [ ] Retention, backup/restore, and privileged-reader access remain deployment decisions before production rollout.
 
 ## Dependencies

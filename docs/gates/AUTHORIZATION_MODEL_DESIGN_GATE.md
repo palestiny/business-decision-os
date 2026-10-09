@@ -2,7 +2,7 @@
 
 ## Status
 
-**TENANT-SCOPED RBAC AND FOUR-EYES APPROVAL VERIFIED IN CI — OPERATIONAL-POLICY CLOSURE REMAINS OPEN.**
+**RBAC, FOUR-EYES APPROVAL, DURABLE AUTHORIZATION AUDIT, AND COMMAND CORRELATION VERIFIED IN CI — OPERATIONAL-POLICY CLOSURE REMAINS OPEN.**
 
 The product owner approved Option B. The implementation now includes actor lifecycle, tenant memberships, role/permission grants, membership-scoped role assignments, and a fail-closed SQLAlchemy adapter. Runtime composition uses this adapter by default while allowing an explicit replacement. Migration 0011 backfills actor rows but deliberately creates no memberships or role assignments.
 
@@ -55,12 +55,13 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 - [x] Migration upgrade/downgrade/upgrade and `alembic check` pass.
 - [x] CI Runs #967/#968 passed on Python 3.12 and 3.13 for commit `ca8e5272aaa8fa90d491e2b62677e109181f3bdc`; each run reports 184 passed tests.
 - [x] Durable allow/deny authorization audit stores actor, tenant, permission, resource, bounded reason code, timestamp, and correlation ID; audit persistence failure denies the request. CI Runs #1011/#1012 passed on Python 3.12/3.13 at commit `da4c67045073191df7307c88a2ea5f232b16cecc`; migration lifecycle, `alembic check`, and tests passed.
+- [x] HTTP request correlation IDs propagate through API command construction into command-handler authorization audit. CI Runs #1023/#1024 passed at commit `6df899cfdfd94808b85152679df6c06f0b6f9559`, with 204 tests per run on Python 3.12/3.13 and migration checks passing.
 
 ## Remaining before PASS
 
-- Trusted provisioning for identity mappings, memberships, and role assignments.
+- Review deployment access and operator credential lifecycle for the implemented offline provisioning CLI.
 - Review retention, access, and operational recovery for durable authorization-decision and administrative audit records.
-- Propagate request correlation IDs into command-handler authorization checks; read API checks already include correlation IDs, but current command handlers do not yet pass them.
+
 - [x] Four-eyes separation-of-duties is implemented and verified in CI #995/#996 (200 tests per Python version); see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 - Decide whether permissions need to vary by case type.
 - Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
