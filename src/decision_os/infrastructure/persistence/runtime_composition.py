@@ -17,6 +17,8 @@ from decision_os.application.commands.reject_decision import RejectDecisionComma
 from decision_os.application.commands.create_action import CreateActionCommand, CreateActionHandler
 from decision_os.application.commands.start_action import StartActionCommand, StartActionHandler
 from decision_os.application.commands.complete_action_execution import CompleteActionExecutionCommand, CompleteActionExecutionHandler
+from decision_os.application.commands.mark_execution_unknown import MarkExecutionUnknownCommand, MarkExecutionUnknownHandler
+from decision_os.application.commands.reconcile_unknown_execution import ReconcileUnknownExecutionCommand, ReconcileUnknownExecutionHandler
 from decision_os.application.ports.authority import AuthorizationPort
 from decision_os.application.reliability import CreateDecisionCaseReliabilityBoundary
 from decision_os.application.triage_reliability import TriageCaseReliabilityBoundary
@@ -31,6 +33,8 @@ from decision_os.application.reject_decision_reliability import RejectDecisionRe
 from decision_os.application.create_action_reliability import CreateActionReliabilityBoundary
 from decision_os.application.start_action_reliability import StartActionReliabilityBoundary
 from decision_os.application.complete_action_execution_reliability import CompleteActionExecutionReliabilityBoundary
+from decision_os.application.mark_execution_unknown_reliability import MarkExecutionUnknownReliabilityBoundary
+from decision_os.application.reconcile_unknown_execution_reliability import ReconcileUnknownExecutionReliabilityBoundary
 from decision_os.application.ports.authority import PolicyEvaluatorPort
 from decision_os.infrastructure.persistence.repositories.reliability import (
     SQLAlchemyAuditRepository,
@@ -394,6 +398,47 @@ class SessionScopedCompleteActionExecutionBoundary:
             boundary = CompleteActionExecutionReliabilityBoundary(
                 uow=uow,
                 handler=CompleteActionExecutionHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+
+class SessionScopedMarkExecutionUnknownBoundary:
+    """Compose mark-unknown adapters over one short-lived Session/transaction."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: MarkExecutionUnknownCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = MarkExecutionUnknownReliabilityBoundary(
+                uow=uow,
+                handler=MarkExecutionUnknownHandler(uow, self._authorization),
+                idempotency=SQLAlchemyIdempotencyRepository(session),
+                audit=SQLAlchemyAuditRepository(session),
+                outbox=SQLAlchemyOutboxRepository(session),
+            )
+            return boundary.execute(command, idempotency_key=idempotency_key, correlation_id=correlation_id)
+
+
+class SessionScopedReconcileUnknownExecutionBoundary:
+    """Compose reconciliation adapters over one short-lived Session/transaction."""
+
+    def __init__(self, *, session_factory: Callable[[], Session], authorization: AuthorizationPort) -> None:
+        self._session_factory = session_factory
+        self._authorization = authorization
+
+    def execute(self, command: ReconcileUnknownExecutionCommand, *, idempotency_key: str, correlation_id: UUID | None = None):
+        with self._session_factory() as session:
+            uow = SQLAlchemyUnitOfWork(session)
+            boundary = ReconcileUnknownExecutionReliabilityBoundary(
+                uow=uow,
+                handler=ReconcileUnknownExecutionHandler(uow, self._authorization),
                 idempotency=SQLAlchemyIdempotencyRepository(session),
                 audit=SQLAlchemyAuditRepository(session),
                 outbox=SQLAlchemyOutboxRepository(session),

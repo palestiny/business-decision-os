@@ -24,6 +24,8 @@ from decision_os.infrastructure.persistence.runtime_composition import (
     SessionScopedCreateActionBoundary,
     SessionScopedStartActionBoundary,
     SessionScopedCompleteActionExecutionBoundary,
+    SessionScopedMarkExecutionUnknownBoundary,
+    SessionScopedReconcileUnknownExecutionBoundary,
 )
 
 
@@ -105,6 +107,12 @@ def build_runtime_app(
     complete_execution_boundary = SessionScopedCompleteActionExecutionBoundary(
         session_factory=session_factory, authorization=authorization,
     )
+    mark_unknown_execution_boundary = SessionScopedMarkExecutionUnknownBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
+    reconcile_execution_boundary = SessionScopedReconcileUnknownExecutionBoundary(
+        session_factory=session_factory, authorization=authorization,
+    )
     queue_reader = SessionFactoryDecisionWorkQueueReader(session_factory)
     app = create_app(
         create_case_boundary=create_case_boundary,
@@ -120,6 +128,8 @@ def build_runtime_app(
         create_action_boundary=create_action_boundary,
         start_action_boundary=start_action_boundary,
         complete_execution_boundary=complete_execution_boundary,
+        mark_unknown_execution_boundary=mark_unknown_execution_boundary,
+        reconcile_execution_boundary=reconcile_execution_boundary,
         decision_work_queue_reader=queue_reader,
         authorization=authorization,
         principal_provider=principal_provider,

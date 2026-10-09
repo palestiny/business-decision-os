@@ -24,7 +24,7 @@ pytestmark = pytest.mark.skipif(
 
 class AllowCreateCase:
     def require(self, *, actor_id, tenant_id, permission, resource_id, correlation_id=None):
-        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.UPDATE_EXECUTION, Permission.VIEW_DECISION_WORK_QUEUE}
+        assert permission in {Permission.CREATE_CASE, Permission.TRIAGE_CASE, Permission.START_ANALYSIS, Permission.CREATE_EVIDENCE, Permission.ADD_ANALYSIS, Permission.SUBMIT_OPTIONS, Permission.AWAIT_DECISION, Permission.MAKE_DECISION, Permission.APPROVE_DECISION, Permission.REJECT_DECISION, Permission.CREATE_ACTION, Permission.START_ACTION, Permission.UPDATE_EXECUTION, Permission.RECONCILE_EXECUTION, Permission.VIEW_DECISION_WORK_QUEUE}
 
 
 class RequireApprovalPolicy:
@@ -666,5 +666,110 @@ def test_runtime_start_analysis_and_evidence_routes_are_composed_and_persisted()
             assert finding_row is not None
             assert finding_row.kind == "FACT"
             assert finding_row.statement == "Forecast margin is below the approved threshold."
+    finally:
+        engine.dispose()
+
+
+
+def test_runtime_marks_unknown_execution_then_reconciles_without_unsafe_retry():
+    from datetime import datetime, timezone
+
+    from decision_os.domain.action import ActionExecutionStatus
+    from decision_os.infrastructure.persistence.models.action import ActionExecutionModel, ActionModel
+    from decision_os.infrastructure.persistence.models.decision import DecisionModel
+
+    tenant_id, actor_id = uuid4(), uuid4()
+    case_id, decision_id, action_id, execution_id = uuid4(), uuid4(), uuid4(), uuid4()
+    now = datetime.now(timezone.utc)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    try:
+        with factory() as session:
+            session.add(TenantModel(id=tenant_id, name=f"runtime-unknown-reconcile-{tenant_id}"))
+            session.flush()
+            session.add(DecisionCaseModel(
+                id=case_id, tenant_id=tenant_id, case_type="PROJECT_MARGIN_RISK",
+                title="Unknown execution reconciliation", created_by=uuid4(),
+                status="EXECUTING", version=8, created_at=now, updated_at=now,
+            ))
+            session.flush()
+            session.add(DecisionModel(
+                id=decision_id, case_id=case_id, status="APPROVED",
+                rationale="Approved test decision", decided_by=uuid4(), decided_at=now,
+                created_at=now, approval_required=True, approved_by=uuid4(), approved_at=now,
+                authority_snapshot='{"approval_required": true, "policy_ids": []}',
+            ))
+            session.flush()
+            session.add(ActionModel(
+                id=action_id, tenant_id=tenant_id, case_id=case_id, decision_id=decision_id,
+                action_type="TEST_OPERATION", parameters="do not retry automatically",
+                status="EXECUTING", version=2,
+            ))
+            session.flush()
+            session.add(ActionExecutionModel(
+                id=execution_id, action_id=action_id, attempt=1, status="RUNNING",
+            ))
+            session.commit()
+
+        principal = AuthenticatedPrincipal(actor_id=actor_id, tenant_id=tenant_id)
+
+        def principal_provider(request: Request):
+            return principal
+
+        app = build_runtime_app(
+            database_url=DATABASE_URL,
+            authorization=AllowCreateCase(),
+            principal_provider=principal_provider,
+        )
+        unknown_key = f"runtime-mark-unknown-{uuid4()}"
+        with TestClient(app) as client:
+            unknown = client.post(
+                f"/api/v1/action-executions/{execution_id}/unknown",
+                headers={"Idempotency-Key": unknown_key},
+            )
+            assert unknown.status_code == 200, unknown.text
+            assert unknown.json()["data"]["status"] == "UNKNOWN"
+            assert unknown.headers["X-Correlation-ID"] == unknown.json()["correlation_id"]
+
+            unknown_replay = client.post(
+                f"/api/v1/action-executions/{execution_id}/unknown",
+                headers={"Idempotency-Key": unknown_key},
+            )
+            assert unknown_replay.status_code == 200, unknown_replay.text
+            assert unknown_replay.json()["data"]["status"] == "UNKNOWN"
+
+            with factory() as session:
+                action = session.get(ActionModel, action_id)
+                execution = session.get(ActionExecutionModel, execution_id)
+                case = session.get(DecisionCaseModel, case_id)
+                assert action.status == "EXECUTING"
+                assert execution.status == "UNKNOWN"
+                assert case.status == "EXECUTING"
+
+            reconcile_key = f"runtime-reconcile-unknown-{uuid4()}"
+            reconciled = client.post(
+                f"/api/v1/action-executions/{execution_id}/reconcile?observed_outcome=SUCCEEDED",
+                headers={"Idempotency-Key": reconcile_key},
+            )
+            assert reconciled.status_code == 200, reconciled.text
+            assert reconciled.json()["data"]["status"] == ActionExecutionStatus.SUCCEEDED.value
+            assert reconciled.headers["X-Correlation-ID"] == reconciled.json()["correlation_id"]
+
+            replay = client.post(
+                f"/api/v1/action-executions/{execution_id}/reconcile?observed_outcome=SUCCEEDED",
+                headers={"Idempotency-Key": reconcile_key},
+            )
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["data"]["status"] == "SUCCEEDED"
+
+        with factory() as session:
+            action = session.get(ActionModel, action_id)
+            execution = session.get(ActionExecutionModel, execution_id)
+            case = session.get(DecisionCaseModel, case_id)
+            assert action.status == "COMPLETED"
+            assert action.version == 3
+            assert execution.status == "SUCCEEDED"
+            assert case.status == "OUTCOME_PENDING"
+            assert case.version == 9
     finally:
         engine.dispose()
