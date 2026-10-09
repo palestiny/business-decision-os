@@ -25,3 +25,6 @@ Project / Delivery Performance Decisions, starting with `PROJECT_MARGIN_RISK`.
 - See `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md`, `docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md`, `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`, `docs/gates/AUTHORIZATION_DECISION_AUDIT_DESIGN_GATE.md`, `docs/gates/AUDIT_RETENTION_AND_ACCESS_DESIGN_GATE.md`, and `docs/checkpoints/CHECKPOINT-038.md` for evidence and remaining work. This is not a deployment-readiness claim.
 
 See `docs/gates/HUMAN_DECISION_WORKFLOW_DESIGN_GATE.md` for the queue slice scope and `ROADMAP.md` for current stage status.
+
+
+- Latest runtime composition: mark-unknown/reconciliation and expected → actual → verified outcomes are composed with request-scoped transactions, authorization, idempotency, audit/outbox, and correlation. CI Runs #1087/#1088 passed on Python 3.12/3.13 at commit `688020042fcdaf6249f1e19b74dc12f37f56b9a2` (218 tests per version; migration checks passed). Deployment and operational controls remain open.

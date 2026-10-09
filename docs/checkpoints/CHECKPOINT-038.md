@@ -1,7 +1,7 @@
 # CHECKPOINT-038 — Runtime Composition First Slice
 
 ## Status
-**Runtime composition, OIDC wiring, tenant-scoped RBAC, permission-gated reads, trusted provisioning, and four-eyes approval are CI-verified. Runtime gate remains open for deployment and operational security controls.**
+**Runtime composition through action uncertainty/reconciliation and verified outcomes is CI-verified, alongside OIDC/RBAC/provisioning/four-eyes controls. Runtime gate remains open for deployment and operational security controls.**
 
 ## Delivered
 - Added a runtime composition root requiring a database URL; it defaults to database-backed fail-closed RBAC and configured OIDC/JWT identity validation unless explicit adapters are injected.
@@ -36,6 +36,13 @@
 - Unit tests cover grants, wrong tenant, missing permissions, inactive actor/membership/assignment/role, policy-store failure, and protected read route denial.
 - PostgreSQL integration verifies seeded roles, explicit grants, wrong-tenant denial, missing-permission denial, membership revocation, and read-only reviewer restrictions.
 - CI Runs #959/#960 passed for the initial RBAC slice; latest read-route enforcement passed CI #967/#968 on Python 3.12 and 3.13 at commit ca8e5272aaa8fa90d491e2b62677e109181f3bdc, with 184 tests per run and migration checks passing.
+
+## Runtime execution uncertainty and outcome verification
+- Composed mark-execution-unknown and reconciliation using a request-scoped Session/UoW, authorization, idempotency, audit/outbox, and correlation.
+- PostgreSQL HTTP integration verifies `RUNNING → UNKNOWN`, keeps the action in `EXECUTING` until authoritative reconciliation, then transitions `UNKNOWN → SUCCEEDED`, action `EXECUTING → COMPLETED`, and case `EXECUTING → OUTCOME_PENDING`. Replay is stable and does not retry the external action.
+- Composed create-expected-outcome, record-actual-outcome, and verify-outcome boundaries, each using one Session/transaction for the command handler, UoW, idempotency, audit, and outbox.
+- PostgreSQL HTTP integration verifies expected/actual/verification persistence, idempotent replay, request correlation, and `OUTCOME_PENDING → CLOSED` after a passing verification.
+- CI Runs #1087/#1088 passed on Python 3.12/3.13 at commit `688020042fcdaf6249f1e19b74dc12f37f56b9a2`: 218 tests passed per version; migration lifecycle and `alembic check` passed.
 
 ## Trusted provisioning implementation (CI-verified)
 - Product owner approved the offline CLI/job approach; no public HTTP provisioning route is added.
