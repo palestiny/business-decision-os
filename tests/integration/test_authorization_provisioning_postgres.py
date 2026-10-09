@@ -35,6 +35,9 @@ def test_postgres_provisioning_is_atomic_idempotent_audited_and_revocable():
         actor_id, membership_id, assignment_id = UUID(result["actor_id"]), UUID(result["membership_id"]), UUID(result["assignment_id"])
         authz = SQLAlchemyAuthorizationAdapter(factory)
         authz.require(actor_id=actor_id, tenant_id=tenant_id, permission=Permission.VIEW_DECISION_WORK_QUEUE, resource_id=tenant_id)
+        effective = service.show_identity(issuer=issuer, subject=subject, tenant_key=tenant_key)
+        assert "VIEW_DECISION_WORK_QUEUE" in effective["effective_permissions"]
+        assert "CREATE_CASE" not in effective["effective_permissions"]
         with factory() as session:
             assert len(session.scalars(select(ExternalIdentityMappingModel).where(ExternalIdentityMappingModel.subject == subject)).all()) == 1
             assert len(session.scalars(select(AuthorizationAdminAuditModel).where(AuthorizationAdminAuditModel.actor_id == actor_id)).all()) == 2

@@ -182,6 +182,64 @@ class SQLAlchemyAuthorizationProvisioner:
                     "assignment_id": str(assignment.id), "correlation_id": str(correlation_id),
                 }
 
+    def show_identity(self, *, issuer: str, subject: str, tenant_key: str) -> dict:
+        """Return the effective provisioned grant for an exact external identity."""
+        self._validate_text(issuer, "issuer", 500)
+        self._validate_text(subject, "subject", 500)
+        self._validate_text(tenant_key, "tenant_key", 255)
+        with self._session_factory() as session:
+            mapping = session.scalar(select(ExternalIdentityMappingModel).where(
+                ExternalIdentityMappingModel.issuer == issuer,
+                ExternalIdentityMappingModel.subject == subject,
+                ExternalIdentityMappingModel.tenant_key == tenant_key,
+            ))
+            if mapping is None:
+                raise ProvisioningError("identity mapping does not exist")
+            actor = session.get(ActorModel, mapping.actor_id)
+            membership = session.scalar(select(TenantMembershipModel).where(
+                TenantMembershipModel.actor_id == mapping.actor_id,
+                TenantMembershipModel.tenant_id == mapping.tenant_id,
+            ))
+            roles = []
+            if membership is not None:
+                rows = session.execute(
+                    select(
+                        RoleModel.key, RoleModel.is_active,
+                        MembershipRoleAssignmentModel.is_active, RolePermissionModel.permission,
+                    )
+                    .join(MembershipRoleAssignmentModel, MembershipRoleAssignmentModel.role_id == RoleModel.id)
+                    .join(TenantMembershipModel, TenantMembershipModel.id == MembershipRoleAssignmentModel.membership_id)
+                    .outerjoin(RolePermissionModel, RolePermissionModel.role_id == RoleModel.id)
+                    .where(TenantMembershipModel.id == membership.id)
+                    .order_by(RoleModel.key, RolePermissionModel.permission)
+                ).all()
+                by_key = {}
+                for role_key, role_active, assignment_active, permission in rows:
+                    item = by_key.setdefault(role_key, {
+                        "role_key": role_key, "role_active": bool(role_active),
+                        "assignment_active": bool(assignment_active), "permissions": [],
+                    })
+                    if permission is not None:
+                        item["permissions"].append(permission)
+                roles = list(by_key.values())
+            membership_active = bool(membership and membership.is_active)
+            actor_active = bool(actor and actor.is_active)
+            effective_permissions = sorted({
+                permission
+                for role in roles
+                if mapping.is_active and actor_active and membership_active
+                and role["role_active"] and role["assignment_active"]
+                for permission in role["permissions"]
+            })
+            return {
+                "issuer": mapping.issuer, "subject": mapping.subject, "tenant_key": mapping.tenant_key,
+                "mapping_active": bool(mapping.is_active), "actor_id": str(mapping.actor_id),
+                "actor_active": actor_active, "tenant_id": str(mapping.tenant_id),
+                "membership_id": str(membership.id) if membership else None,
+                "membership_active": membership_active, "roles": roles,
+                "effective_permissions": effective_permissions,
+            }
+
     def revoke_membership(self, *, membership_id: UUID, operator: str) -> dict:
         return self._revoke(target_type="membership", target_id=membership_id, operator=operator)
 

@@ -160,3 +160,28 @@ def test_provisioning_rolls_back_grant_when_audit_write_fails():
     finally:
         event.remove(Session, "before_flush", fail_audit)
         engine.dispose()
+
+
+
+def test_show_identity_reports_effective_permissions_and_denies_unknown_identity():
+    engine, factory, tenant_id = _setup()
+    service = SQLAlchemyAuthorizationProvisioner(factory)
+    try:
+        with pytest.raises(ProvisioningError, match="does not exist"):
+            service.show_identity(
+                issuer="https://issuer.example", subject="missing", tenant_key="tenant-a",
+            )
+        plan = service.plan_provision(
+            issuer="https://issuer.example", subject="viewer", tenant_key="tenant-a",
+            tenant_id=tenant_id, role_key="decision_author",
+        )
+        service.apply_provision(plan=plan, operator="operator:deployment")
+        result = service.show_identity(
+            issuer="https://issuer.example", subject="viewer", tenant_key="tenant-a",
+        )
+        assert result["mapping_active"] is True
+        assert result["membership_active"] is True
+        assert "CREATE_CASE" in result["effective_permissions"]
+        assert "APPROVE_DECISION" not in result["effective_permissions"]
+    finally:
+        engine.dispose()

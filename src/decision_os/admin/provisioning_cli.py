@@ -31,6 +31,10 @@ def _parser() -> argparse.ArgumentParser:
     revoke_role.add_argument("--assignment-id", required=True, type=UUID)
     revoke_role.add_argument("--operator", default=os.getenv("DECISION_OS_ADMIN_OPERATOR"))
     revoke_role.add_argument("--confirm", action="store_true", help="commit the revocation")
+    show = sub.add_parser("show-identity", help="show the effective grant for one external identity")
+    show.add_argument("--issuer", required=True)
+    show.add_argument("--subject", required=True)
+    show.add_argument("--tenant-key", required=True)
     return parser
 
 
@@ -38,12 +42,16 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if not args.database_url:
         raise SystemExit("--database-url or SQLALCHEMY_DATABASE_URL is required")
-    if not args.operator or not args.operator.strip():
+    if args.command != "show-identity" and (not args.operator or not args.operator.strip()):
         raise SystemExit("--operator or DECISION_OS_ADMIN_OPERATOR is required")
     engine = create_engine(args.database_url, pool_pre_ping=True)
     factory = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
     try:
         service = SQLAlchemyAuthorizationProvisioner(factory)
+        if args.command == "show-identity":
+            result = service.show_identity(issuer=args.issuer, subject=args.subject, tenant_key=args.tenant_key)
+            print(json.dumps({"mode": "read-only", "result": result}, sort_keys=True))
+            return 0
         if args.command == "provision":
             plan = service.plan_provision(
                 issuer=args.issuer, subject=args.subject, tenant_key=args.tenant_key,
