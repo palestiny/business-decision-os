@@ -2,9 +2,9 @@
 
 ## Status
 
-**OPEN — APPROVAL POLICY MUST BE EXPLICIT BEFORE THE DEFAULT RUNTIME CAN EXPOSE MAKE-DECISION.**
+**OPTION A IMPLEMENTED — CI VERIFICATION IN PROGRESS; OPERATIONAL GATES REMAIN OPEN.**
 
-The command handler already accepts an explicit `PolicyEvaluatorPort`. Runtime composition deliberately leaves `POST /api/v1/decision-cases/{case_id}/decision` unmounted when no evaluator is supplied. This is fail-closed behavior: RBAC permission to make a decision must not silently invent whether that decision requires independent approval.
+The product owner approved Option A. Runtime composition now uses `RequireApprovalForEveryDecisionPolicy` by default and mounts `POST /api/v1/decision-cases/{case_id}/decision`; every decision requires independent approval and stores a stable policy identifier. An explicitly injected `PolicyEvaluatorPort` can replace the default for a reviewed deployment-specific policy. CI Runs #1096/#1097 are verifying this implementation on Python 3.12 and 3.13.
 
 Four-eyes enforcement is implemented separately. Whenever approval is required, the approver must differ from both the case creator and decision maker; legacy cases without creator attribution fail closed.
 
@@ -42,11 +42,15 @@ If Option A is approved:
 6. Verify the separate four-eyes rule still blocks creator/decision-maker self-approval.
 7. Keep the runtime gate open until deployment identity configuration and operational security controls are verified.
 
-## Decision required
+## Decision
 
-- [ ] Approve Option A: every decision requires approval in the first release.
-- [ ] Choose Option B instead and define the initial case-type → approval-required matrix.
-- [ ] Choose Option C or D and specify the trusted policy source/attributes.
+- [x] **Option A approved:** every decision requires approval in the first release.
+- [x] Stable policy identifier is persisted with the decision; idempotent replay returns the same approval-required flag and policy identifier.
+- [x] Runtime keeps explicit policy injection available for a reviewed replacement policy.
+- [x] Unit tests cover deterministic approval requirement and stable policy identifier.
+- [x] PostgreSQL runtime integration exercises the default policy rather than injecting a test policy.
+- [ ] CI verification and migration checks for the final commit must pass before marking this gate PASS.
+- [ ] Runtime/deployment security gates remain separate and open.
 
 ## Dependencies
 
