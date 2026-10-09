@@ -2,7 +2,7 @@
 
 ## Status
 
-**CURSOR PAGINATION IMPLEMENTED; CI VERIFICATION PENDING.**
+**BOUNDED CURSOR PAGINATION VERIFIED IN CI; OPERATOR WORKFLOW VALIDATION REMAINS OPEN.**
 
 The current GET /api/v1/decision-work-queue returns every matching case. The persistence reader loads joined case/decision/action rows, deduplicates and sorts them in application memory, then serializes the full list. This is acceptable for the first small test dataset, not for tenants with large case volumes.
 
@@ -60,6 +60,11 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 - Existing queue behavior remains compatible for the first page and preserves correlation IDs.
 - Unit and PostgreSQL integration tests pass on supported Python versions.
 - Runtime/security gates remain open until deployment controls are verified.
+
+## Remaining before gate closure
+
+- Validate operator workflow with representative users, including refresh behavior after attention-priority changes.
+- Confirm the initial case-type filter allowlist is appropriate before adding future case types.
 
 ## Dependencies
 

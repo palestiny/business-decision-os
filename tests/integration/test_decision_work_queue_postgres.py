@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import Request
@@ -168,3 +168,26 @@ def test_work_queue_rejects_malformed_cursor_with_standard_error(session: Sessio
     response = client.get("/api/v1/decision-work-queue", params={"cursor": "not-a-valid-cursor"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_CURSOR"
+
+
+def test_cursor_reuse_never_changes_authenticated_tenant_scope(session: Session):
+    tenant_a, tenant_b = uuid4(), uuid4()
+    seed_tenant(session, tenant_a)
+    seed_tenant(session, tenant_b)
+    seed_case(session, tenant_a, UUID(int=10), "AWAITING_DECISION", "Tenant A first")
+    seed_case(session, tenant_a, UUID(int=20), "AWAITING_DECISION", "Tenant A second")
+    tenant_b_first, tenant_b_second = UUID(int=30), UUID(int=40)
+    seed_case(session, tenant_b, tenant_b_first, "AWAITING_DECISION", "Tenant B first")
+    seed_case(session, tenant_b, tenant_b_second, "AWAITING_DECISION", "Tenant B second")
+
+    page_a = build_client(session, tenant_a).get("/api/v1/decision-work-queue", params={"limit": 1})
+    assert page_a.status_code == 200
+    cursor = page_a.json()["next_cursor"]
+    assert cursor
+
+    page_b = build_client(session, tenant_b).get(
+        "/api/v1/decision-work-queue", params={"limit": 10, "cursor": cursor},
+    )
+    assert page_b.status_code == 200
+    returned_ids = {row["case_id"] for row in page_b.json()["data"]}
+    assert returned_ids == {str(tenant_b_first), str(tenant_b_second)}
