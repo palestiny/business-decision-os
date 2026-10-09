@@ -46,7 +46,7 @@ This gate decides how an authorized operator creates and revokes identity mappin
 - [x] Product owner approved Option B: offline administrative CLI/job.
 - Decide whether one external subject may be linked to the same internal actor across multiple tenants; initial safe default is no automatic linking, with explicit operator-supplied actor ID for intentional linking.
 - Confirm whether initial Tenant Admin assignment requires a second-person review. Recommended: not in the first CLI, but all grants are explicitly audited and access to the command is tightly controlled.
-- Decide whether an author may approve their own case. RBAC role separation alone does not prevent one actor holding both roles; approval separation-of-duties must be enforced in the application policy before this is treated as complete.
+- Decide and enforce case-creator/decision-maker separation from the approver; see `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`. RBAC role separation alone does not prevent one actor holding both roles.
 
 ## Initial implementation delivered
 
@@ -94,6 +94,7 @@ Run the CLI only from a trusted administrative environment with tightly scoped d
 ## Dependencies
 
 - docs/gates/AUTHORIZATION_MODEL_DESIGN_GATE.md
+- docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md
 - docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md
 - docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md
 

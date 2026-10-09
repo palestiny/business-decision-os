@@ -40,6 +40,7 @@
 ## Remaining before runtime/security gate closure
 1. Operate provisioning only from a trusted environment and document production recovery/retention; implementation is CI-verified in docs/gates/TRUSTED_AUTHORIZATION_PROVISIONING_DESIGN_GATE.md.
 2. Extend durable audit coverage to every authorization decision and all role/membership changes outside this CLI; provisioning grants/revokes are audited transactionally.
+3. Resolve the proposed four-eyes approval rule in docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md before implementing the approval persistence changes.
 3. Decide separation-of-duties rules, including whether an author may approve their own case.
 4. Configure deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 5. Compose additional command routes only after authorization, transaction, and lifecycle dependencies are explicitly wired.

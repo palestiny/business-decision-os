@@ -59,10 +59,10 @@ The initial permissions are tenant-wide. History, memory, and work-queue read ro
 
 - Trusted provisioning for identity mappings, memberships, and role assignments.
 - Durable audit of authorization decisions and role/membership changes.
-- Explicit separation-of-duties rules, including whether the same actor may author and approve a case.
+- Decide and verify separation-of-duties rules in `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`.
 - Decide whether permissions need to vary by case type.
 - Deployment-specific OIDC issuer, audience, JWKS URL, and tenant claim.
 
 ## Dependencies
 
-See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md` and `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`. Do not mark deployment authentication or runtime composition gates PASS merely because JWT validation succeeds.
+See `docs/gates/DEPLOYMENT_AUTHENTICATION_DESIGN_GATE.md`, `docs/gates/RUNTIME_COMPOSITION_DESIGN_GATE.md`, and `docs/gates/SEPARATION_OF_DUTIES_DESIGN_GATE.md`. Do not mark deployment authentication or runtime composition gates PASS merely because JWT validation succeeds.
