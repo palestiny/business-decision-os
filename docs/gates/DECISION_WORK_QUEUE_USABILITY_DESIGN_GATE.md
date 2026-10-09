@@ -4,7 +4,7 @@
 
 **BOUNDED CURSOR PAGINATION VERIFIED IN CI; OPERATOR WORKFLOW VALIDATION REMAINS OPEN.**
 
-The current GET /api/v1/decision-work-queue returns every matching case. The persistence reader loads joined case/decision/action rows, deduplicates and sorts them in application memory, then serializes the full list. This is acceptable for the first small test dataset, not for tenants with large case volumes.
+Before this slice, GET /api/v1/decision-work-queue returned every matching case and sorted it in application memory. It now uses database-side filters, priority ordering, and limit+1 retrieval, with keyset cursor pagination.
 
 This gate covers bounded retrieval and operator-facing query ergonomics only. It does not authorize a second workflow aggregate, a new source of truth, or a frontend framework decision.
 
@@ -54,12 +54,20 @@ This gate covers bounded retrieval and operator-facing query ergonomics only. It
 
 ## Acceptance criteria
 
-- No unbounded queue API response.
-- Database-side filtering/order/limit are tested, not merely response slicing.
-- Cursor values cannot alter tenant scope or bypass authorization.
-- Existing queue behavior remains compatible for the first page and preserves correlation IDs.
-- Unit and PostgreSQL integration tests pass on supported Python versions.
-- Runtime/security gates remain open until deployment controls are verified.
+- [x] No unbounded queue API response.
+- [x] Database-side filtering/order/limit are exercised by PostgreSQL integration tests and implemented in SQL.
+- [x] Cursor values cannot alter tenant scope or bypass authorization; a cross-tenant cursor-reuse test verifies that tenant scope comes from the authenticated principal.
+- [x] Existing first-page fields and correlation IDs are preserved; `next_cursor` is additive.
+- [x] Unit and PostgreSQL integration tests pass on supported Python versions.
+- [x] Runtime/security gates remain open until deployment controls are verified.
+
+## Verification evidence
+
+- CI Run #1106 passed the implementation on Python 3.12/3.13 with 224 tests per version: https://github.com/palestiny/business-decision-os/actions/runs/37928372848
+- CI Run #1108 passed after adding explicit cursor-reuse tenant isolation coverage: https://github.com/palestiny/business-decision-os/actions/runs/37928622339
+- Python 3.12: 225 passed, 33 warnings; Python 3.13: 225 passed, 33 warnings.
+- Alembic downgrade/upgrade/current-head checks and `alembic check` passed in both jobs.
+- Verified test commit: `90683be85d9818bf80c9f62adde229561001d3be`.
 
 ## Remaining before gate closure
 

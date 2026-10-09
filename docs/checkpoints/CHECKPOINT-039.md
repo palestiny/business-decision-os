@@ -15,11 +15,12 @@
 - Query-scoped Session lifecycle and exceptional cleanup remain covered by existing unit tests.
 
 ## Verification
-- CI Run #1106: https://github.com/palestiny/business-decision-os/actions/runs/37928372848
-- Python 3.12: 224 passed, 33 warnings.
-- Python 3.13: 224 passed, 33 warnings.
+- CI Run #1106 (implementation): https://github.com/palestiny/business-decision-os/actions/runs/37928372848 — 224 passed on Python 3.12 and 3.13.
+- CI Run #1108 (cursor-reuse tenant-isolation regression test): https://github.com/palestiny/business-decision-os/actions/runs/37928622339.
+- Python 3.12: 225 passed, 33 warnings.
+- Python 3.13: 225 passed, 33 warnings.
 - Alembic downgrade/upgrade/current-heads and `alembic check` passed in both jobs.
-- Commit: `2b4edadd30f47017bfba198bab3b931a75828ddf`.
+- Verified test commit: `90683be85d9818bf80c9f62adde229561001d3be`.
 
 ## Remaining
 1. Validate the work queue with representative operators and realistic case volumes.
